@@ -1,4 +1,4 @@
-3.4.1 DT Kernel self-test
+3.4.2 DT Kernel self-test
 
 DT kernel self-test is integarted with ACS live image and is used for validating the devices described in the device tree have an associated drivers in OS. <br />
 The ACS performs this test automatically.This section describes how to perform the test manually.
