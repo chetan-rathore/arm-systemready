@@ -22,6 +22,7 @@ mount -t efivarfs efivarfs /sys/firmware/efi/efivars
 
 if ! grep -q "ttySC0" /etc/securetty; then
   echo "ttySC0" >> /etc/securetty
+  echo "added ttySC0"
 fi
 
 sleep 5
