@@ -30,22 +30,26 @@ jobs:
       run: |
         sudo mkdir -p /build
         sudo chown $USER:$USER /build
-        cd /build
     - uses: actions/checkout@v4
       with:
         fetch-depth: 1
-        path: /build
+        path: build
+    - name: Move repository to /build
+      run: |
+        sudo mv $GITHUB_WORKSPACE/build /build
+        sudo chown -R $(whoami) /build
+        ls -lah /build
     - name: Start building
       run:
         sudo -s;
         git config --global user.name "arm-systemready";
         git config --global user.email "arm-systemready@arm.com";
-        cd SystemReady-band;
+        cd /build/SystemReady-band;
         ./build-scripts/get_source.sh;
         ./build-scripts/build-systemready-band-live-image.sh
     - uses: actions/upload-artifact@v4
       with:
         name: systemready_acs_live_image.img.xz
-        path: SystemReady-band/output/systemready_acs_live_image.img.xz
+        path: /build/SystemReady-band/output/systemready_acs_live_image.img.xz
         if-no-files-found: error
 
