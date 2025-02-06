@@ -31,7 +31,7 @@ jobs:
         sudo mkdir -p /build
         sudo chown $USER:$USER /build
         cd /build
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 1
         path: /build
@@ -43,7 +43,7 @@ jobs:
         cd SystemReady-band;
         ./build-scripts/get_source.sh;
         ./build-scripts/build-systemready-band-live-image.sh
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: systemready_acs_live_image.img.xz
         path: SystemReady-band/output/systemready_acs_live_image.img.xz
