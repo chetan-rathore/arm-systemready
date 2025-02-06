@@ -44,6 +44,7 @@ jobs:
         sudo -s;
         git config --global user.name "arm-systemready";
         git config --global user.email "arm-systemready@arm.com";
+        ls /build
         cd /build/SystemReady-band;
         ./build-scripts/get_source.sh;
         ./build-scripts/build-systemready-band-live-image.sh
