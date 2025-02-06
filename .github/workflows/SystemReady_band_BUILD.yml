@@ -26,9 +26,15 @@ jobs:
         remove-haskell: 'true'
         remove-codeql: 'true'
         remove-docker-images: 'true'
+    - name: Set up build directory
+      run: |
+        sudo mkdir -p /build
+        sudo chown $USER:$USER /build
+        cd /build
     - uses: actions/checkout@v3
       with:
         fetch-depth: 1
+        path: /build
     - name: Start building
       run:
         sudo -s;
