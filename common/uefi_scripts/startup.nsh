@@ -19,18 +19,41 @@
 echo -off
 connect -r
 
+for %a in 0 1 2 3 4 5 6 7 8 9 A B C D E F then
+        if exist FS%a:\acs_tests\parser\Parser.efi then
+            FS%i:
+            echo "Config File content"
+            echo " "
+            echo " "
+            type acs_tests\config\acs_config.ini
+            echo " "
+            echo " "
+            echo "Press any key to modify the Config file"
+            echo "If no key is pressed then default configurations"
+            FS%a:acs_tests\bbr\SCT\Stallforkey.efi 10
+			if %lasterror% == 0 then
+                FS%a:\acs_tests\parser\Parser.efi
+                FS%a:\acs_tests\parser\Parser.efi -generic
+                FS%a:\acs_tests\parser\Parser.efi -bsa
+                goto DoneParserApp
+            else
+                FS%a:\acs_tests\parser\Parser.efi -generic
+                FS%a:\acs_tests\parser\Parser.efi -bsa
+                goto DoneParserApp
+			endif
+        else
+            echo "Parser.efi not present"
+        endif
+endfor
+:DoneParserApp
+echo "done parser app"
+echo " "
+
 # check if BBSR SCT in progress, if yes resume the run.
 for %b in 0 1 2 3 4 5 6 7 8 9 A B C D E F then
     if exist FS%b:\acs_tests\bbr\bbsr_inprogress.flag then
         echo "BBSR compliance testing in progress, Resuming ..."
         FS%b:\EFI\BOOT\bbsr_startup.nsh
-    endif
-endfor
-
-# Run the config parser
-for %a in 0 1 2 3 4 5 6 7 8 9 A B C D E F then
-    if exist FS%a:\acs_tests\parser\Parser.efi  then
-        FS%a:\acs_tests\parser\Parser.efi
     endif
 endfor
 
@@ -78,13 +101,19 @@ for %p in 0 1 2 3 4 5 6 7 8 9 A B C D E F then
 endfor
 :DoneDebug
 
-for %j in 0 1 2 3 4 5 6 7 8 9 A B C D E F then
-    if exist FS%j:\acs_tests\bsa\bsa.nsh then
-        FS%j:\acs_tests\bsa\bsa.nsh
-        goto Donebsa
-    endif
-endfor
-:Donebsa
+if %BsaEnableDisable% == "Enable" then 
+    for %j in 0 1 2 3 4 5 6 7 8 9 A B C D E F then
+        if exist FS%j:\acs_tests\bsa\bsa.nsh then
+            if %config_enabled_for_automation_run% == "Enable" then
+                FS%j:\acs_tests\bsa\bsa.nsh true
+            else
+                FS%j:\acs_tests\bsa\bsa.nsh false
+			endif
+        endif
+    endfor
+else
+    echo "************ BSA is disabled in config file(acs_config.ini) ************"
+endif
 
 for %z in 0 1 2 3 4 5 6 7 8 9 A B C D E F then
     if exist FS%z:\acs_tests\bsa\sbsa\sbsa.nsh then

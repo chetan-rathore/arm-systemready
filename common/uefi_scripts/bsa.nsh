@@ -54,8 +54,13 @@ for %i in 0 1 2 3 4 5 6 7 8 9 A B C D E F then
                     #Executing for BSA SystemReady-devicetree-band. Execute only OS tests
                     FS%i:\acs_tests\bsa\Bsa.efi -v 1 -os -skip 900 -dtb BsaDevTree.dtb -f BsaVerboseTempResults.log
                 else
-                   FS%i:\acs_tests\bsa\Bsa.efi -v 1 -skip 900 -f BsaVerboseTempResults.log
-                endif
+                if "%1" == "true" then
+                    echo "running generated bsa command *****"
+                    FS%i:\acs_tests\bsa\%BsaCommand% -f BsaTempResults.log
+               else
+                   echo "runnning bsa default command ******"
+                   FS%i:\acs_tests\bsa\Bsa.efi -skip 900 -f BsaTempResults.log
+                endif                endif
                 stall 200000
                 if exist FS%i:\acs_results\uefi\BsaVerboseTempResults.log then
                     if exist FS%i:\acs_tests\bsa\bsa_dt.flag then
