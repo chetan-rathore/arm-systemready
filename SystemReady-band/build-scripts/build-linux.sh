@@ -85,6 +85,9 @@ do_build ()
     #Configurations to increase serial ports
     echo "CONFIG_SERIAL_8250_NR_UARTS=32" >> $LINUX_OUT_DIR/.config
     echo "CONFIG_SERIAL_8250_RUNTIME_UARTS=32" >> $LINUX_OUT_DIR/.config
+    # 6.12 linux kernel was missing below USB configs, causing issues.
+    echo "CONFIG_USB_PCI=y" >> $LINUX_OUT_DIR/.config
+    echo "CONFIG_USB_XHCI_PCI=m" >> $LINUX_OUT_DIR/.config
 
     if [[ $arch = "aarch64" ]]
     then
