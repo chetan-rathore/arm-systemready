@@ -62,7 +62,7 @@ get_bsa_src()
     if [ -z $ARM_BSA_TAG ]; then
         #No TAG is provided. Download the latest code
         echo "Downloading Arm BSA source code."
-        git clone --depth 1 https://github.com/ARM-software/bsa-acs.git ShellPkg/Application/bsa-acs
+        git clone --depth 1 --branch latest https://github.com/chetan-rathore/bsa-acs.git ShellPkg/Application/bsa-acs
     else
         echo "Downloading Arm BSA source code. TAG : $ARM_BSA_TAG"
         git clone --depth 1 --branch $ARM_BSA_TAG https://github.com/ARM-software/bsa-acs.git ShellPkg/Application/bsa-acs
@@ -79,7 +79,7 @@ get_sbsa_src()
     if [ -z $ARM_SBSA_TAG ]; then
         #No TAG is provided. Download the latest code
         echo "Downloading Arm SBSA source code."
-        git clone --depth 1 https://github.com/ARM-software/sbsa-acs.git ShellPkg/Application/sbsa-acs
+        git clone --depth 1  --branch latest https://github.com/chetan-rathore/sbsa-acs.git ShellPkg/Application/sbsa-acs
     else
         echo "Downloading Arm SBSA source code. TAG : $ARM_SBSA_TAG"
         git clone --depth 1 --branch $ARM_SBSA_TAG https://github.com/ARM-software/sbsa-acs.git ShellPkg/Application/sbsa-acs
