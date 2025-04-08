@@ -124,7 +124,7 @@ do_package ()
     cp $TOP_DIR/$LINUX_PATH/$LINUX_OUT_DIR/drivers/nvme/host/nvme.ko $TOP_DIR/ramdisk/drivers
     cp $TOP_DIR/$LINUX_PATH/$LINUX_OUT_DIR/drivers/nvme/host/nvme-core.ko $TOP_DIR/ramdisk/drivers
     cp $TOP_DIR/$LINUX_PATH/$LINUX_OUT_DIR/drivers/usb/host/xhci-pci-renesas.ko $TOP_DIR/ramdisk/drivers
-    cp $TOP_DIR/$LINUX_PATH/$LINUX_OUT_DIR/drivers/usb/host/xhci-pci.ko $TOP_DIR/ramdisk/drivers
+  #  cp $TOP_DIR/$LINUX_PATH/$LINUX_OUT_DIR/drivers/usb/host/xhci-pci.ko $TOP_DIR/ramdisk/drivers
     cp $TOP_DIR/$LINUX_PATH/$LINUX_OUT_DIR/drivers/char/tpm/tpm_tis.ko $TOP_DIR/ramdisk/drivers
     cp $TOP_DIR/$LINUX_PATH/$LINUX_OUT_DIR/drivers/char/tpm/tpm_tis_spi.ko $TOP_DIR/ramdisk/drivers
     cp $TOP_DIR/$LINUX_PATH/$LINUX_OUT_DIR/drivers/char/tpm/tpm_tis_i2c_cr50.ko $TOP_DIR/ramdisk/drivers
