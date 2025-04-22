@@ -1,8 +1,9 @@
-# SystemReady Automation Configuration User Guide
+# SystemReady Band Execution Enviroment and Configuration User Guide
 
 ## Overview
 
-This guide provides details on the new configuration-based automation feature integrated into the SystemReady-band image. The image supports running various test suites in both UEFI and Linux environments. A configuration file is used to selectively enable/disable individual test suites. This allows for flexible and targeted testing.
+This guide provides details on the SR band Execution Enviroment and configuration-based feature integrated into the SystemReady-band image. The image supports running various test suites in both UEFI and Linux environments. 
+Execution Enviroment is used to run selectively required test suites manually and a configuration file is used to selectively enable/disable individual test suites in automation run. This allows for flexible and targeted testing. The configuration file is also used with Execution Enviroment to run selected test suites with necessary parameters.
 
 ---
 
@@ -59,13 +60,13 @@ automation_bbsr_tpm_run = true
 
 ### Behavior Details for Config-Based Automation
 
-This section explains how the automation flow behaves based on the `config_enabled_for_automation_run` flag in the configuration file.
+This section explains how the automation run behaves based on the `config_enabled_for_automation_run` flag in the configuration file.
 
 ---
 
 ### Configuration variable: `config_enabled_for_automation_run`
 
-This flag controls whether the automation system should follow the instructions in the configuration file or use the default legacy behavior.
+This flag controls whether the automation run should follow the instructions in the configuration file or use the default behavior.
 
 ```ini
 [AUTOMATION]
@@ -116,8 +117,9 @@ config_enabled_for_automation_run = false
 
 ---
 
-## GRUB Menu Options
+## SR Execution Enviroment
 
+The grub menu is updated to provide two more options for execution enviroment.
 On boot, users are presented with the following GRUB menu:
 
 1. **Linux Boot** - Boots into the default Linux environment.
