@@ -2,8 +2,10 @@
 
 ## Overview
 
-This guide provides details on the SR band Execution Enviroment and configuration-based feature integrated into the SystemReady-band image. The image supports running various test suites in both UEFI and Linux environments. 
-Execution Enviroment is used to run selectively required test suites manually and a configuration file is used to selectively enable/disable individual test suites in automation run. This allows for flexible and targeted testing. The configuration file is also used with Execution Enviroment to run selected test suites with necessary parameters.
+This guide provides details on the SR band Execution Enviroment and configuration-based feature integrated into the SystemReady-band image.
+
+Execution Enviroment is used to run manually only a desired selected test suites, and with a configuration file the test suite run can be customized with required parameter.
+The configuration file can also be used to selectively enable/disable individual test suites in automation run. This allows for flexible and targeted testing.
 
 ---
 
