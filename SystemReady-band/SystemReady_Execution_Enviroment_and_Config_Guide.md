@@ -122,14 +122,22 @@ config_enabled_for_automation_run = false
 The grub menu is updated to provide two more options for execution enviroment.
 On boot, users are presented with the following GRUB menu:
 
-1. **Linux Boot** - Boots into the default Linux environment.
-2. **SystemReady band ACS (Automation)** - Initiates the automation flow.
-3. **BBSR Compliance (Automation)** -  - Launches the BBSR-specific testing environment.
-4. **UEFI Execution Enviroment** - Allows manual execution of UEFI-based test suites using the config file.
-5. **Linux Execution Enviroment** - Allows manual execution of Linux-based test suites using the config file. 
-6. **Set Virtual Address Map** - Technical option for configuring memory map behavior in UEFI.
-
+```
+Linux Boot
+SystemReady band ACS (Automation)
+BBSR Compliance (Automation)
+UEFI Execution Enviroment
+Linux Execution Enviroment
+Set Virtual Address Map
+```
 ---
+
+- Linux Boot - Boots into the default Linux environment.
+- SystemReady band ACS (Automation) - Initiates the automation flow.
+- BBSR Compliance (Automation) -  - Launches the BBSR-specific testing environment.
+- UEFI Execution Enviroment - Allows manual execution of UEFI-based test suites using the config file.
+- Linux Execution Enviroment - Allows manual execution of Linux-based test suites using the config file. 
+- Set Virtual Address Map - Technical option for configuring memory map behavior in UEFI.
 
 ## SystemReady band ACS (Automation) Flow
 
