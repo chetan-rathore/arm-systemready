@@ -62,7 +62,8 @@ get_bsa_src()
     if [ -z $ARM_BSA_TAG ]; then
         #No TAG is provided. Download the latest code
         echo "Downloading Arm BSA source code."
-        git clone --depth 1 https://github.com/ARM-software/bsa-acs.git ShellPkg/Application/bsa-acs
+        git clone --depth 1 --branch linux_porting https://github.com/ajayswar-s/bsa-acs.git ShellPkg/Application/bsa-acs
+	echo "DOWNLOADED LINUX PORTING"
     else
         echo "Downloading Arm BSA source code. TAG : $ARM_BSA_TAG"
         git clone --depth 1 --branch $ARM_BSA_TAG https://github.com/ARM-software/bsa-acs.git ShellPkg/Application/bsa-acs
@@ -144,7 +145,8 @@ get_linux-acs_src()
 {
   if [ -z $ARM_LINUX_ACS_TAG ]; then
       echo "Downloading Arm Linux ACS source code."
-      git clone --depth 1 https://gitlab.arm.com/linux-arm/linux-acs.git linux-acs
+      git clone --depth 1 --branch linux_porting https://gitlab.arm.com/linux-arm/linux-acs.git linux-acs
+      echo "DOWNLOADED LINUX PORTING"
   else
       echo "Downloading Arm Linux ACS source code. TAG : ${ARM_LINUX_ACS_TAG}"
       git clone --depth 1 --branch ${ARM_LINUX_ACS_TAG} https://gitlab.arm.com/linux-arm/linux-acs.git linux-acs
@@ -153,7 +155,7 @@ get_linux-acs_src()
     pushd $TOP_DIR/linux-${LINUX_KERNEL_VERSION}
     #The same patch is applicable BSA and SBSA
     echo "Applying Linux ACS xBSA Patch..."
-    git am $TOP_DIR/linux-acs/kernel/src/0001-BSA-ACS-Linux-${LINUX_KERNEL_VERSION}.patch
+    #git am $TOP_DIR/linux-acs/kernel/src/0001-BSA-ACS-Linux-${LINUX_KERNEL_VERSION}.patch
     git am $TOP_DIR/../common/patches/0001-SystemReady-Linux-${LINUX_KERNEL_VERSION}.patch
     git am $TOP_DIR/../common/patches/0001-disable-psci-checker.patch
 
