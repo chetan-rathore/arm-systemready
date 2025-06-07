@@ -1,0 +1,14 @@
+The images are debug image for verifying linux porting changes.
+
+Extract SR image systemready_acs_live_image.img.xz using
+ > xz -d systemready_acs_live_image.img.xz
+
+this will produce a .img file which can be flashed on your system for testing
+
+The DT image due to size is uploaded after splitting, use below command to concatenate it
+> cat systemready-dt_acs_live_image.wic.xz_* > systemready-dt_acs_live_image.wic.xz
+
+then extract using
+ > xz -d systemready-dt_acs_live_image.wic.xz
+
+this will produce a .wic file which can be flashed on your system for testing
