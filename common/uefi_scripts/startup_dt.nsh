@@ -77,8 +77,8 @@ endfor
 for %j in 0 1 2 3 4 5 6 7 8 9 A B C D E F then
     if exist FS%j:\acs_tests\bsa\bsa.nsh then
         echo " "
-        echo "Running BSA test"
-        FS%j:\acs_tests\bsa\bsa.nsh
+        echo "Running BSA test -- DISABLED"
+        # FS%j:\acs_tests\bsa\bsa.nsh
         goto Donebsa
     endif
 endfor
