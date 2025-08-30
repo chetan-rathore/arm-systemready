@@ -17,9 +17,18 @@ on:
       dummy:
         required: false
 
+defaults:
+  run:
+    shell: bash
+
+# Yocto caches (big speedups)
+env:
+  DL_DIR: ${{ github.workspace }}/.yocto-cache/downloads
+  SSTATE_DIR: ${{ github.workspace }}/.yocto-cache/sstate
+
 jobs:
   #######################################################################
-  # SystemReady band build
+  # SystemReady band build (as-is)
   #######################################################################
   systemready:
     if: ${{ inputs.run-sysready }}
@@ -61,38 +70,73 @@ jobs:
           if-no-files-found: error
 
   #######################################################################
-  # Devicetree band build
+  # Devicetree band build (root, with Yocto caches & speed-ups)
   #######################################################################
   devicetree:
     if: ${{ inputs.run-dt }}
     name: Devicetree band • build
     runs-on: ubuntu-22.04
     container:
-      image: ghcr.io/chetan-rathore/yocto-host:22.04
-      options: --user 0:0
+      image: ghcr.io/chetan-rathore/yocto-host:22.04   # your pre-baked image
+      options: --user 0:0                               # run steps as root
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
+
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      - name: Start building
+      # Reuse downloads and sstate between runs
+      - name: Cache Yocto downloads
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.DL_DIR }}
+          key: yocto-dl-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/conf/*.conf') }}
+          restore-keys: |
+            yocto-dl-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Cache Yocto sstate
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.SSTATE_DIR }}
+          key: yocto-sstate-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/conf/*.conf') }}
+          restore-keys: |
+            yocto-sstate-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Start building (root) with caches
         run: |
           set -eux
-          # Let the non-root user own the workspace and temp
-          chown -R yocto:yocto "$GITHUB_WORKSPACE" /__w/_temp || true
+          cd SystemReady-devicetree-band/Yocto
 
-          # Run the build as 'yocto' (image already has this user)
-          su -s /bin/bash yocto -c 'bash -s' <<'BASH'
-            set -eux
-            git config --global user.name "arm-systemready"
-            git config --global user.email "arm-systemready@arm.com"
-            cd "$GITHUB_WORKSPACE/SystemReady-devicetree-band/Yocto"
-            ./build-scripts/get_source.sh
-            ./build-scripts/build-systemready-dt-band-live-image.sh
-            BASH
+          # Fetch layers/sources (your script)
+          ./build-scripts/get_source.sh
+
+          # Allow BitBake as root (Yocto sanity hack)
+          sed -i 's/if 0 == os.getuid/if 1 == os.getuid/' meta-woden/poky/meta/classes-global/sanity.bbclass
+
+          # Locate or create the build/conf/local.conf we should tweak
+          LOCALCONF="$(find . -path '*/build/conf/local.conf' | head -n1 || true)"
+          if [ -z "${LOCALCONF}" ]; then
+            # fallback to the standard location used in your tree
+            mkdir -p meta-woden/build/conf
+            LOCALCONF="meta-woden/build/conf/local.conf"
+            touch "${LOCALCONF}"
+          fi
+
+          # Inject caches + parallelism (idempotent-ish)
+          {
+            echo ''
+            echo '# === CI speed-ups (injected) ==='
+            echo 'DL_DIR ?= "${@os.environ.get("DL_DIR")}"'
+            echo 'SSTATE_DIR ?= "${@os.environ.get("SSTATE_DIR")}"'
+            echo 'BB_NUMBER_THREADS ?= "${@oe.utils.cpu_count()}"'
+            echo 'PARALLEL_MAKE ?= "-j ${@oe.utils.cpu_count()}"'
+          } >> "${LOCALCONF}"
+
+          # Build (your script)
+          ./build-scripts/build-systemready-dt-band-live-image.sh
 
       - name: Upload Devicetree image
         uses: actions/upload-artifact@v4
