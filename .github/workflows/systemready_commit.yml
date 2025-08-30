@@ -11,7 +11,7 @@ jobs:
   run:
     uses: ./.github/workflows/systemready_ci.yml
     with:
-      run-sysready: true
-      run-dt: false
+      run-sysready: false
+      run-dt: true
     secrets: inherit
 
