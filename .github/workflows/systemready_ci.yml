@@ -17,6 +17,19 @@ on:
       dummy:
         required: false
 
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: sysready-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DL_DIR: ${{ github.workspace }}/.yocto-cache/downloads
+  SSTATE_DIR: ${{ github.workspace }}/.yocto-cache/sstate
+  # CCACHE_DIR: ${{ github.workspace }}/.yocto-ccache   # (optional)
+
 jobs:
   #######################################################################
   # SystemReady band build
@@ -61,7 +74,7 @@ jobs:
           if-no-files-found: error
 
   #######################################################################
-  # Devicetree band build
+  # Devicetree band build (Yocto) — caches + fast host-tools, no heredocs
   #######################################################################
   devicetree:
     if: ${{ inputs.run-dt }}
@@ -81,20 +94,70 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Start building
-        run: |
-          sudo -s;
-          git config --global user.name "arm-systemready";
-          git config --global user.email "arm-systemready@arm.com";
-          cd SystemReady-devicetree-band/Yocto;
-          ./build-scripts/get_source.sh;
-          sed -i 's/if 0 == os.getuid/if 1 == os.getuid/' meta-woden/poky/meta/classes-global/sanity.bbclass;
-          ./build-scripts/build-systemready-dt-band-live-image.sh
-
-      - name: Upload Devicetree image
-        uses: actions/upload-artifact@v4
+      # Reuse downloads and sstate between runs (biggest speedup)
+      - name: Cache Yocto downloads
+        uses: actions/cache@v4
         with:
-          name: systemready-dt_acs_live_image.wic.xz
-          path: SystemReady-devicetree-band/Yocto/meta-woden/build/tmp/deploy/images/generic-arm64/systemready-dt_acs_live_image.wic.xz
-          if-no-files-found: error
+          path: ${{ env.DL_DIR }}
+          key: yocto-dl-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/conf/*.conf') }}
+          restore-keys: |
+            yocto-dl-${{ runner.os }}-${{ runner.arch }}-
 
+      - name: Cache Yocto sstate
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.SSTATE_DIR }}
+          key: yocto-sstate-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/conf/*.conf') }}
+          restore-keys: |
+            yocto-sstate-${{ runner.os }}-${{ runner.arch }}-
+
+      # (Optional) enable if you add ccache to the runner/image
+      # - name: Cache ccache
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: ${{ env.CCACHE_DIR }}
+      #     key: yocto-ccache-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/conf/*.conf') }}
+      #     restore-keys: |
+      #       yocto-ccache-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Ensure Yocto host tools (fast + robust)
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -eux
+          sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 update
+          req_pkgs=(
+            build-essential chrpath cpio diffstat file gawk git
+            python3 python3-pip python3-pexpect python3-jinja2 python3-subunit
+            texinfo unzip wget xz-utils zstd liblz4-tool locales socat iputils-ping
+          )
+          missing=()
+          for p in "${req_pkgs[@]}"; do dpkg -s "$p" >/dev/null 2>&1 || missing+=("$p"); done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            sudo apt-get install -y --no-install-recommends "${missing[@]}"
+          fi
+          if ! locale -a | grep -qi '^en_US\.utf8$'; then
+            echo "en_US.UTF-8 UTF-8" | sudo tee -a /etc/locale.gen >/dev/null
+            sudo locale-gen en_US.UTF-8
+            sudo update-locale LANG=en_US.UTF-8
+          fi
+
+      - name: Start building (with caches + parallelism)
+        run: |
+          set -eux
+          sudo -s;
+          git config --global user.name "arm-systemready"
+          git config --global user.email "arm-systemready@arm.com"
+          cd SystemReady-devicetree-band/Yocto
+
+          # Fetch layers/sources
+          ./build-scripts/get_source.sh
+
+          # Allow BitBake as root (Yocto sanity hack, since you run as root)
+          sed -i 's/if 0 == os.getuid/if 1 == os.getuid/' meta-woden/poky/meta/classes-global/sanity.bbclass
+
+          # Find/create local.conf, then append cache + parallelism settings
+          LOCALCONF="$(find . -path '*/build/conf/local.conf' | head -n1 || true)"
+          if [ -z "${LOCALCONF}" ]; then
+            mkdir -p meta-woden/build/conf
+            LOCALCONF="met
