@@ -85,13 +85,14 @@ jobs:
           chown -R yocto:yocto "$GITHUB_WORKSPACE" /__w/_temp || true
 
           # Run the build as 'yocto' (image already has this user)
-          su -s /bin/bash yocto -c '
+          su -s /bin/bash yocto -c 'bash -s' <<'BASH'
             set -eux
             git config --global user.name "arm-systemready"
             git config --global user.email "arm-systemready@arm.com"
             cd "$GITHUB_WORKSPACE/SystemReady-devicetree-band/Yocto"
             ./build-scripts/get_source.sh
             ./build-scripts/build-systemready-dt-band-live-image.sh
+            BASH
 
       - name: Upload Devicetree image
         uses: actions/upload-artifact@v4
