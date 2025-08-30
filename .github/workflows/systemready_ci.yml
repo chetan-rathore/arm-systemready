@@ -66,7 +66,7 @@ jobs:
   devicetree:
     if: ${{ inputs.run-dt }}
     name: Devicetree band • build
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-22.04-arm
     steps:
       - name: Maximize build space
         uses: easimon/maximize-build-space@master
@@ -103,7 +103,7 @@ jobs:
           git config --global user.email "arm-systemready@arm.com";
           cd SystemReady-devicetree-band/Yocto;
           ./build-scripts/get_source.sh;
-          sed -i 's/if 0 == os.getuid/if 1 == os.getuid/' meta-woden/poky/meta/classes-global/sanity.bbclass;
+          #sed -i 's/if 0 == os.getuid/if 1 == os.getuid/' meta-woden/poky/meta/classes-global/sanity.bbclass;
           ./build-scripts/build-systemready-dt-band-live-image.sh
 
       - name: Upload Devicetree image
