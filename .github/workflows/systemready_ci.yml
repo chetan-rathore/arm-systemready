@@ -69,7 +69,9 @@ jobs:
     runs-on: ubuntu-22.04
     container:
       image: ghcr.io/chetan-rathore/yocto-host:22.04
-      options: --user 1000:1000
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -77,13 +79,18 @@ jobs:
 
       - name: Start building
         run: |
-          sudo -s;
-          git config --global user.name "arm-systemready";
-          git config --global user.email "arm-systemready@arm.com";
-          cd SystemReady-devicetree-band/Yocto;
-          ./build-scripts/get_source.sh;
-          #sed -i 's/if 0 == os.getuid/if 1 == os.getuid/' meta-woden/poky/meta/classes-global/sanity.bbclass;
-          ./build-scripts/build-systemready-dt-band-live-image.sh
+          set -eux
+          # Let the non-root user own the workspace and temp
+          chown -R yocto:yocto "$GITHUB_WORKSPACE" /__w/_temp || true
+
+          # Run the build as 'yocto' (image already has this user)
+          su -s /bin/bash yocto -c '
+            set -eux
+            git config --global user.name "arm-systemready"
+            git config --global user.email "arm-systemready@arm.com"
+            cd "$GITHUB_WORKSPACE/SystemReady-devicetree-band/Yocto"
+            ./build-scripts/get_source.sh
+            ./build-scripts/build-systemready-dt-band-live-image.sh
 
       - name: Upload Devicetree image
         uses: actions/upload-artifact@v4
