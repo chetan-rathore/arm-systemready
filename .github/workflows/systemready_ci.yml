@@ -68,7 +68,7 @@ jobs:
     name: Devicetree band • build
     runs-on: ubuntu-22.04
     container:
-      image: ghcr.io/<org-or-user>/yocto-host:22.04
+      image: ghcr.io/chetan-rathore/yocto-host:22.04
       options: --user 1000:1000
     steps:
       - uses: actions/checkout@v4
