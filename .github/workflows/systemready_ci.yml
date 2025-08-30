@@ -69,6 +69,7 @@ jobs:
     runs-on: ubuntu-22.04
     container:
       image: ghcr.io/chetan-rathore/yocto-host:22.04
+      options: --user 0:0
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
