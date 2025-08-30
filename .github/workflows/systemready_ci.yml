@@ -160,4 +160,27 @@ jobs:
           LOCALCONF="$(find . -path '*/build/conf/local.conf' | head -n1 || true)"
           if [ -z "${LOCALCONF}" ]; then
             mkdir -p meta-woden/build/conf
-            LOCALCONF="met
+            LOCALCONF="meta-woden/build/conf/local.conf"
+            : > "${LOCALCONF}"
+          fi
+
+          if ! grep -q 'CI speed-ups (injected)' "${LOCALCONF}"; then
+            printf '\n# === CI speed-ups (injected) ===\n' >> "${LOCALCONF}"
+            printf 'DL_DIR ?= "${@os.environ.get("DL_DIR")}"\n' >> "${LOCALCONF}"
+            printf 'SSTATE_DIR ?= "${@os.environ.get("SSTATE_DIR")}"\n' >> "${LOCALCONF}"
+            printf 'BB_NUMBER_THREADS ?= "${@oe.utils.cpu_count()}"\n' >> "${LOCALCONF}"
+            printf 'PARALLEL_MAKE ?= "-j ${@oe.utils.cpu_count()}"\n' >> "${LOCALCONF}"
+            # To enable ccache later, also append:
+            # printf 'INHERIT += "ccache"\n' >> "${LOCALCONF}"
+            # printf 'CCACHE_DIR ?= "${@os.environ.get("CCACHE_DIR")}"\n' >> "${LOCALCONF}"
+          fi
+
+          # Build
+          ./build-scripts/build-systemready-dt-band-live-image.sh
+
+      - name: Upload Devicetree image
+        uses: actions/upload-artifact@v4
+        with:
+          name: systemready-dt_acs_live_image.wic.xz
+          path: SystemReady-devicetree-band/Yocto/meta-woden/build/tmp/deploy/images/generic-arm64/systemready-dt_acs_live_image.wic.xz
+          if-no-files-found: error
