@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # @file
-# Copyright (c) 2021-2024, Arm Limited or its affiliates. All rights reserved.
+# Copyright (c) 2021-2025, Arm Limited or its affiliates. All rights reserved.
 # SPDX-License-Identifier : Apache-2.0
 
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,7 +25,7 @@ if [ $? -eq 0 ]; then
       cd $TOP_DIR/meta-woden/build/tmp/deploy/images/genericarm64
       rm systemready-dt_acs_live_image.wic.xz 2> /dev/null
       cp woden-image-genericarm64.rootfs.wic systemready-dt_acs_live_image.wic
-      xz -z systemready-dt_acs_live_image.wic
+      xz -T0 -z systemready-dt_acs_live_image.wic
       echo "The built image is at $TOP_DIR/meta-woden/build/tmp/deploy/images/genericarm64/systemready-dt_acs_live_image.wic.xz"
     fi
 fi

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # @file
-# Copyright (c) 2021-2024, Arm Limited or its affiliates. All rights reserved.
+# Copyright (c) 2021-2025, Arm Limited or its affiliates. All rights reserved.
 # SPDX-License-Identifier : Apache-2.0
 
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,6 +37,9 @@ BUILDROOT_OUT_DIR=out/$LINUX_ARCH
 BUILDROOT_RAMDISK_BUILDROOT_PATH=$BUILDROOT_PATH/$BUILDROOT_OUT_DIR/images
 BUILDROOT_DEFCONFIG=$TOP_DIR/$BUILDROOT_PATH/configs/buildroot_defconfig
 OUTDIR=$TOP_DIR/output
+ARCH=arm64
+CROSS_COMPILE=${TOP_DIR}/tools/arm-gnu-toolchain-13.2.rel1-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-
+KDIR="${TOP_DIR}/linux-6.16/out" 
 
 do_build ()
 {
@@ -56,6 +59,7 @@ do_build ()
     mkdir -p root_fs_overlay/bin
     mkdir -p root_fs_overlay/lib/modules
     mkdir -p root_fs_overlay/usr/bin
+    mkdir -p root_fs_overlay/usr/bin/sbmr-acs
 
     if [ ! -d root_fs_overlay/usr/bin/edk2-test-parser ]; then
         cp -r $TOP_DIR/edk2-test-parser root_fs_overlay/usr/bin/
@@ -67,16 +71,17 @@ do_build ()
 
     cp  $TOP_DIR/ramdisk/secure_init.sh root_fs_overlay/usr/bin/
     chmod +x root_fs_overlay/usr/bin/secure_init.sh
-    cp  $TOP_DIR/ramdisk/device_driver.sh root_fs_overlay/usr/bin/
-    chmod +x root_fs_overlay/usr/bin/device_driver.sh
-    cp  $TOP_DIR/ramdisk/bsa.sh root_fs_overlay/bin/
-    chmod +x root_fs_overlay/bin/bsa.sh
-    cp  $TOP_DIR/ramdisk/sbsa.sh root_fs_overlay/bin/
-    chmod +x root_fs_overlay/bin/sbsa.sh
-    cp  $TOP_DIR/ramdisk/fwts.sh root_fs_overlay/bin/
-    chmod +x root_fs_overlay/bin/fwts.sh
+    cp  $TOP_DIR/ramdisk/device_driver_sr.sh root_fs_overlay/usr/bin/
+    chmod +x root_fs_overlay/usr/bin/device_driver_sr.sh
+    cp  $TOP_DIR/ramdisk/bsa.sh root_fs_overlay/usr/bin/
+    chmod +x root_fs_overlay/usr/bin/bsa.sh
+    cp  $TOP_DIR/ramdisk/sbsa.sh root_fs_overlay/usr/bin/
+    chmod +x root_fs_overlay/usr/bin/sbsa.sh
+    cp  $TOP_DIR/ramdisk/fwts.sh root_fs_overlay/usr/bin/
+    chmod +x root_fs_overlay/usr/bin/fwts.sh
     cp  $TOP_DIR/bbr-acs/bbsr/config/bbsr_fwts_tests.ini root_fs_overlay/bin/
     cp  $TOP_DIR/ramdisk/verify_tpm_measurements.py root_fs_overlay/bin/
+    tar -xf $TOP_DIR/sbmr-acs/sbmr-acs.tar.gz -C root_fs_overlay/usr/bin/sbmr-acs
 
     touch root_fs_overlay/bin/sr_bsa.flag
     cp  $TOP_DIR/ramdisk/linux-sbsa/sbsa root_fs_overlay/bin/
@@ -87,6 +92,10 @@ do_build ()
     make O=$BUILDROOT_OUT_DIR buildroot_defconfig
     make O=$BUILDROOT_OUT_DIR -j $PARALLELISM
     rm $BUILDROOT_DEFCONFIG
+    popd
+    pushd $TOP_DIR/$BUILDROOT_PATH/out/arm64/build/fwts-25.09.00/smccc_test
+    make -C "$KDIR" M="$PWD" CROSS_COMPILE="$CROSS_COMPILE" modules
+    cp smccc_test.ko $TOP_DIR/$BUILDROOT_PATH/root_fs_overlay/lib/modules/
     popd
 }
 

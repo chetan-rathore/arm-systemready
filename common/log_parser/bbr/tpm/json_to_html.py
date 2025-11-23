@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2024, Arm Limited or its affiliates. All rights reserved.
+# Copyright (c) 2024-2025, Arm Limited or its affiliates. All rights reserved.
 # SPDX-License-Identifier : Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -47,7 +47,7 @@ def generate_bar_chart_improved(suite_summary):
     labels = [
         'Passed',
         'Failed',
-        'Failed with Waiver',
+        'Failured with Waiver',
         'Aborted',
         'Skipped',
         'Warnings',

@@ -50,7 +50,7 @@ get_uefi_src()
     popd
 }
 
-get_bsa_src()
+get_sysarch_acs_src()
 {
     pushd $TOP_DIR/edk2
     git clone https://github.com/tianocore/edk2-libc
@@ -59,33 +59,16 @@ get_bsa_src()
         exit 1
     fi
 
-    if [ -z $ARM_BSA_TAG ]; then
+    if [ -z $SYS_ARCH_ACS_TAG ]; then
         #No TAG is provided. Download the latest code
-        echo "Downloading Arm BSA source code."
-        git clone --depth 1 https://github.com/ARM-software/bsa-acs.git ShellPkg/Application/bsa-acs
+        echo "Downloading Arm SYSARCH-ACS source code."
+        git clone --depth 1 https://github.com/ARM-software/sysarch-acs.git ShellPkg/Application/sysarch-acs
     else
-        echo "Downloading Arm BSA source code. TAG : $ARM_BSA_TAG"
-        git clone --depth 1 --branch $ARM_BSA_TAG https://github.com/ARM-software/bsa-acs.git ShellPkg/Application/bsa-acs
+        echo "Downloading Arm SYSARCH-ACS source code. TAG : $SYS_ARCH_ACS_TAG"
+        git clone --depth 1 --branch $SYS_ARCH_ACS_TAG https://github.com/ARM-software/sysarch-acs.git ShellPkg/Application/sysarch-acs
     fi
     popd
-    pushd  $TOP_DIR/edk2/ShellPkg/Application/bsa-acs
-    git pull
-    popd
-}
-
-get_sbsa_src()
-{
-    pushd $TOP_DIR/edk2
-    if [ -z $ARM_SBSA_TAG ]; then
-        #No TAG is provided. Download the latest code
-        echo "Downloading Arm SBSA source code."
-        git clone --depth 1 https://github.com/ARM-software/sbsa-acs.git ShellPkg/Application/sbsa-acs
-    else
-        echo "Downloading Arm SBSA source code. TAG : $ARM_SBSA_TAG"
-        git clone --depth 1 --branch $ARM_SBSA_TAG https://github.com/ARM-software/sbsa-acs.git ShellPkg/Application/sbsa-acs
-    fi
-    popd
-    pushd  $TOP_DIR/edk2/ShellPkg/Application/sbsa-acs
+    pushd  $TOP_DIR/edk2/ShellPkg/Application/sysarch-acs
     git pull
     popd
 }
@@ -103,12 +86,12 @@ get_cross_compiler()
         mkdir -p tools
         pushd $TOP_DIR/tools
         wget $CROSS_COMPILER_URL --no-check-certificate
-	if [ $? -ne 0 ]; then
+        if [ $? -ne 0 ]; then
             echo "Error: Failed to dowload toolchain"
             exit 1
         fi
         tar -xf arm-gnu-toolchain-${GCC_TOOLS_VERSION}-x86_64-${TAG}.tar.xz
-	mv arm-gnu-toolchain-13.2.Rel1-x86_64-aarch64-none-linux-gnu arm-gnu-toolchain-13.2.rel1-x86_64-aarch64-none-linux-gnu
+        mv arm-gnu-toolchain-13.2.Rel1-x86_64-aarch64-none-linux-gnu arm-gnu-toolchain-13.2.rel1-x86_64-aarch64-none-linux-gnu
         rm arm-gnu-toolchain-${GCC_TOOLS_VERSION}-x86_64-${TAG}.tar.xz
         popd
     fi
@@ -151,9 +134,6 @@ get_linux-acs_src()
   fi
 
     pushd $TOP_DIR/linux-${LINUX_KERNEL_VERSION}
-    #The same patch is applicable BSA and SBSA
-    echo "Applying Linux ACS xBSA Patch..."
-    git am $TOP_DIR/linux-acs/kernel/src/0001-BSA-ACS-Linux-${LINUX_KERNEL_VERSION}.patch
     git am $TOP_DIR/../common/patches/0001-SystemReady-Linux-${LINUX_KERNEL_VERSION}.patch
     git am $TOP_DIR/../common/patches/0001-disable-psci-checker.patch
 
@@ -176,11 +156,32 @@ get_bbr_acs_src()
     fi
 }
 
+get_sbmr_acs_src()
+{
+    echo "Downloading sbmr-acs source code."
+    if [ -z "$SBMR_ACS_TAG" ]; then
+        git clone --depth 1 https://github.com/ARM-software/sbmr-acs sbmr-acs
+        if [ $? -ne 0 ]; then
+            echo "Error: Failed to download sbmr-acs source code"
+            exit 1
+        fi
+    else
+        echo "Using SBMR-ACS TAG: $SBMR_ACS_TAG"
+        git clone --depth 1 --branch "$SBMR_ACS_TAG" https://github.com/ARM-software/sbmr-acs sbmr-acs
+        if [ $? -ne 0 ]; then
+            echo "Error: Failed to download sbmr-acs source code with tag $SBMR_ACS_TAG"
+            exit 1
+        fi
+    fi
+    pushd $TOP_DIR/sbmr-acs
+        git archive --format=tar.gz -o sbmr-acs.tar.gz HEAD
+    popd
+}
+
 get_buildroot_src()
 {
     echo "Downloading Buildroot source code. TAG : $BUILDROOT_SRC_VERSION"
     #git clone -b $BUILDROOT_SRC_VERSION https://git.busybox.net/buildroot/
-    #TODO  git clone was failing with busybox url, try gitlab
     git clone -b $BUILDROOT_SRC_VERSION https://gitlab.com/buildroot.org/buildroot.git
     if [ $? -ne 0 ]; then
         echo "Error: Failed to download buildroot source code"
@@ -189,7 +190,13 @@ get_buildroot_src()
     pushd $TOP_DIR/buildroot/package/fwts
         echo "Applying Buildroot FWTS patch..."
         # patch buildroot config
-        git apply $TOP_DIR/../common/patches/build_fwts_version_25.01.00.patch
+        git apply $TOP_DIR/../common/patches/build_fwts_version_25.09.00.patch
+    popd
+    pushd $TOP_DIR/buildroot
+        echo "Applying Buildroot SBMR-ACS patch..."
+        git apply $TOP_DIR/patches/build_sbmr_acs.patch
+        #This patch is to update dmidecode to v3.6 , which is a SBMR requirment.
+        git apply $TOP_DIR/patches/0001-dmidecode-version-3.6.patch
     popd
 }
 
@@ -235,8 +242,7 @@ fi
 get_uefi_src
 get_efitools_src
 get_sct_src
-get_bsa_src
-get_sbsa_src
+get_sysarch_acs_src
 get_bbr_acs_src
 get_buildroot_src
 get_cross_compiler
@@ -244,3 +250,4 @@ get_edk2-test-parser_src
 get_grub_src
 get_linux_src
 get_linux-acs_src
+get_sbmr_acs_src

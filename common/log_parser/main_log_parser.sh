@@ -116,13 +116,14 @@ check_file() {
         fi
         return 1
     fi
+    echo -e "Processing "$1" file."
     return 0
 }
 
 # print missing json
 print_missing_json() {
     local debug=0
-    if [ debug = 1 ]; then 	
+    if [ debug = 1 ]; then
         echo -e "${YELLOW}WARNING: "$1" is missing.${NC}"
     fi
 }
@@ -153,6 +154,10 @@ Standalone_PROCESSED=0
 OS_TESTS_PROCESSED=0
 CAPSULE_PROCESSED=0
 POST_SCRIPT_PROCESSED=0
+PFDI_PROCESSED=0
+SBMR_PROCESSED=0
+SBMR_IB_PROCESSED=0
+SBMR_OOB_PROCESSED=0
 
 ################################################################################
 # BSA PARSING
@@ -311,6 +316,94 @@ if check_file "$BBSR_TPM_LOG"; then
 fi
 
 ################################################################################
+# PFDI PARSING
+################################################################################
+if [ $YOCTO_FLAG_PRESENT -eq 1 ]; then 
+    PFDI_LOG="$LOGS_PATH/uefi/pfdiresults.log"   # adjust if your log lives elsewhere
+    PFDI_JSON="$JSONS_DIR/pfdi.json"
+    PFDI_PROCESSED=0
+
+    if check_file "$PFDI_LOG" "CM"; then
+        PFDI_PROCESSED=1
+        if python3 "$SCRIPTS_PATH/pfdi/logs_to_json.py" \
+                "$PFDI_LOG" \
+                "$PFDI_JSON"; then
+            apply_waivers "PFDI" "$PFDI_JSON"
+            python3 "$SCRIPTS_PATH/pfdi/json_to_html.py" \
+                    "$PFDI_JSON" \
+                    "$HTMLS_DIR/pfdi_detailed.html" \
+                    "$HTMLS_DIR/pfdi_summary.html"
+        else
+            if [ $? -eq 1 ]; then
+                PFDI_PROCESSED=0
+                echo -e " PFDI -- Not Implemented"
+            else
+                PFDI_PROCESSED=0
+                echo -e "${RED}ERROR: PFDI logs parsing to json failed.${NC}"
+            fi
+        fi
+    fi
+fi
+################################################################################
+# SBMR PARSING (IB + OOB)
+################################################################################
+# Execute only if YOCTO_FLAG_PRESENT is 0
+if [ "$YOCTO_FLAG_PRESENT" -eq 0 ]; then
+
+    # Paths relative to LOGS_PATH (new layout)
+    SBMR_IB_LOG="$LOGS_PATH/sbmr/sbmr_in_band_logs/console.log"
+    SBMR_OOB_LOG="$LOGS_PATH/sbmr/sbmr_out_of_band_logs/console.log"
+
+    SBMR_IB_JSON="$JSONS_DIR/sbmr_ib.json"
+    SBMR_OOB_JSON="$JSONS_DIR/sbmr_oob.json"
+
+    # Reset flags
+    SBMR_IB_PROCESSED=0
+    SBMR_OOB_PROCESSED=0
+
+    # Parse IB
+    if check_file "$SBMR_IB_LOG" "M"; then
+        SBMR_IB_PROCESSED=1
+        python3 "$SCRIPTS_PATH/sbmr/logs_to_json.py" "$SBMR_IB_LOG" "$SBMR_IB_JSON"
+        if [ $? -ne 0 ]; then
+            SBMR_IB_PROCESSED=0
+            echo -e "${RED}ERROR: SBMR IB logs parsing to json failed.${NC}"
+        else
+            apply_waivers "SBMR" "$SBMR_IB_JSON"
+        fi
+    fi
+
+    # Parse OOB
+    if check_file "$SBMR_OOB_LOG" "M"; then
+        SBMR_OOB_PROCESSED=1
+        python3 "$SCRIPTS_PATH/sbmr/logs_to_json.py" "$SBMR_OOB_LOG" "$SBMR_OOB_JSON"
+        if [ $? -ne 0 ]; then
+            SBMR_OOB_PROCESSED=0
+            echo -e "${RED}ERROR: SBMR OOB logs parsing to json failed.${NC}"
+        else
+            apply_waivers "SBMR" "$SBMR_OOB_JSON"
+        fi
+    fi
+
+    # Generate separate HTMLs per band
+    if [ $SBMR_IB_PROCESSED -eq 1 ]; then
+        python3 "$SCRIPTS_PATH/sbmr/json_to_html.py" \
+            "$SBMR_IB_JSON" \
+            "$HTMLS_DIR/sbmr_ib_detailed.html" \
+            "$HTMLS_DIR/sbmr_ib_summary.html" \
+            "$LOGS_PATH/sbmr/sbmr_in_band_logs/report.html"
+    fi
+
+    if [ $SBMR_OOB_PROCESSED -eq 1 ]; then
+        python3 "$SCRIPTS_PATH/sbmr/json_to_html.py" \
+            "$SBMR_OOB_JSON" \
+            "$HTMLS_DIR/sbmr_oob_detailed.html" \
+            "$HTMLS_DIR/sbmr_oob_summary.html" \
+            "$LOGS_PATH/sbmr/sbmr_out_of_band_logs/report.html"
+    fi
+
+fi
+################################################################################
 # POST-SCRIPT LOG PARSING
 ################################################################################
 if [ $YOCTO_FLAG_PRESENT -eq 1 ]; then
@@ -355,7 +448,7 @@ if [ $YOCTO_FLAG_PRESENT -eq 1 ]; then
     fi
 
     # 2) DT_VALIDATE
-    DT_VALIDATE_LOG="$LINUX_TOOLS_LOGS_PATH/dt-validate.log"
+    DT_VALIDATE_LOG="$LINUX_TOOLS_LOGS_PATH/dt-validate-parser.log"
     DT_VALIDATE_JSON="$JSONS_DIR/dt_validate.json"
     if check_file "$DT_VALIDATE_LOG" "M"; then
         python3 "$SCRIPTS_PATH/standalone_tests/logs_to_json.py" \
@@ -395,7 +488,7 @@ if [ $YOCTO_FLAG_PRESENT -eq 1 ]; then
 
 #    if check_file "$CAPSULE_UPDATE_LOG" "M" && check_file "$CAPSULE_ON_DISK_LOG" "M" && check_file "$CAPSULE_TEST_RESULTS_LOG" "M"; then
     if check_file "$CAPSULE_TEST_RESULTS_LOG" "M"; then
-    	    python3 "$SCRIPTS_PATH/standalone_tests/logs_to_json.py" \
+            python3 "$SCRIPTS_PATH/standalone_tests/logs_to_json.py" \
             capsule_update \
             "$CAPSULE_UPDATE_LOG" \
             "$CAPSULE_ON_DISK_LOG" \
@@ -471,7 +564,7 @@ if [ $YOCTO_FLAG_PRESENT -eq 1 ]; then
                         BOOT_SOURCES_PATHS+=("Unknown")
                     fi
                 else
-                    echo "${RED}ERROR: ethtool_test.log not found in $OS_DIR"
+                    echo -e "${RED}ERROR: ethtool_test.log not found in $OS_DIR${NC}"
                 fi
             fi
         done
@@ -545,6 +638,20 @@ else
     print_missing_json "sct.json"
 fi
 
+# SBMR IB
+if [ $SBMR_IB_PROCESSED -eq 1 ] && [ -f "$SBMR_IB_JSON" ]; then
+    JSON_FILES+=("$SBMR_IB_JSON")
+else
+    print_missing_json "sbmr_ib.json"
+fi
+
+# SBMR OOB
+if [ $SBMR_OOB_PROCESSED -eq 1 ] && [ -f "$SBMR_OOB_JSON" ]; then
+    JSON_FILES+=("$SBMR_OOB_JSON")
+else
+    print_missing_json "sbmr_oob.json"
+fi
+
 # BBSR-FWTS
 if [ $BBSR_FWTS_PROCESSED -eq 1 ] && [ -f "$BBSR_FWTS_JSON" ]; then
     JSON_FILES+=("$BBSR_FWTS_JSON")
@@ -564,6 +671,13 @@ if [ $BBSR_TPM_PROCESSED -eq 1 ] && [ -f "$BBSR_TPM_JSON" ]; then
     JSON_FILES+=("$BBSR_TPM_JSON")
 else
     print_missing_json "bbsr_tpm.json"
+fi
+
+# PFDI
+if [ $PFDI_PROCESSED -eq 1 ] && [ -f "$PFDI_JSON" ]; then
+    JSON_FILES+=("$PFDI_JSON")
+else
+    print_missing_json "pfdi.json"
 fi
 
 # POST-SCRIPT
@@ -652,30 +766,51 @@ else
     GENERATE_ACS_SUMMARY_CMD+=" \"\""
 fi
 
-# 8) POST-SCRIPT
+# 8) PFDI
+if [ $PFDI_PROCESSED -eq 1 ]; then
+    GENERATE_ACS_SUMMARY_CMD+=" \"$HTMLS_DIR/pfdi_summary.html\""
+else
+    GENERATE_ACS_SUMMARY_CMD+=" \"\""
+fi
+
+# 9) POST-SCRIPT
 if [ $POST_SCRIPT_PROCESSED -eq 1 ]; then
     GENERATE_ACS_SUMMARY_CMD+=" \"$HTMLS_DIR/post_script_summary.html\""
 else
     GENERATE_ACS_SUMMARY_CMD+=" \"\""
-fi 
+fi
 
-# 9) STANDALONE
+# 10) STANDALONE
 if [ $Standalone_PROCESSED -eq 1 ]; then
     GENERATE_ACS_SUMMARY_CMD+=" \"$Standalone_SUMMARY_HTML\""
 else
     GENERATE_ACS_SUMMARY_CMD+=" \"\""
 fi
 
-# 10) OS TESTS
+# 11) OS TESTS
 if [ $OS_TESTS_PROCESSED -eq 1 ]; then
     GENERATE_ACS_SUMMARY_CMD+=" \"$OS_SUMMARY_HTML\""
 else
     GENERATE_ACS_SUMMARY_CMD+=" \"\""
 fi
 
-# 11) CAPSULE UPDATE SUMMARY
+# 12) CAPSULE UPDATE SUMMARY
 CAPSULE_SUMMARY_HTML=""
 GENERATE_ACS_SUMMARY_CMD+=" \"$CAPSULE_SUMMARY_HTML\""
+
+# 13) SBMR-IB
+if [ $SBMR_IB_PROCESSED -eq 1 ]; then
+    GENERATE_ACS_SUMMARY_CMD+=" \"$HTMLS_DIR/sbmr_ib_summary.html\""
+else
+    GENERATE_ACS_SUMMARY_CMD+=" \"\""
+fi
+
+# 14) SBMR-OOB
+if [ $SBMR_OOB_PROCESSED -eq 1 ]; then
+    GENERATE_ACS_SUMMARY_CMD+=" \"$HTMLS_DIR/sbmr_oob_summary.html\""
+else
+    GENERATE_ACS_SUMMARY_CMD+=" \"\""
+fi
 
 # Then the final argument is the summary HTML
 GENERATE_ACS_SUMMARY_CMD+=" \"$ACS_SUMMARY_HTML\""
@@ -755,7 +890,7 @@ if [ $print_path -eq 1 ]; then
         echo "POST SCRIPTS Detailed Summary : $HTMLS_DIR/post_script_detailed.html"
         echo "POST SCRIPTS Summary          : $HTMLS_DIR/post_script_summary.html"
         echo ""
-    fi 
+    fi
     if [ $Standalone_PROCESSED -eq 1 ]; then
         echo "Standalone tests Detailed Summary      : $Standalone_DETAILED_HTML"
         echo "Standalone tests Summary               : $Standalone_SUMMARY_HTML"
@@ -771,6 +906,12 @@ if [ $print_path -eq 1 ]; then
         echo "Capsule Update Detailed Summary : $HTMLS_DIR/capsule_update_detailed.html"
         echo "Capsule Update Summary          : $HTMLS_DIR/capsule_update_summary.html"
         echo ""
+    fi
+    if [ $PFDI_PROCESSED -eq 1 ]; then
+    echo "PFDI JSON                 : $PFDI_JSON"
+    echo "PFDI Detailed Summary     : $HTMLS_DIR/pfdi_detailed.html"
+    echo "PFDI Summary              : $HTMLS_DIR/pfdi_summary.html"
+    echo ""
     fi
 fi
 

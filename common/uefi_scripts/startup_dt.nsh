@@ -19,6 +19,53 @@
 echo -off
 connect -r
 
+for %x in 0 1 2 3 4 5 6 7 8 9 A B C D E F then
+  if exist FS%x:\acs_tests\bbr\boot_tolinuxprompt.flag then
+      echo "Secure Boot just cleared. Skipping ACS tests and booting Linux..."
+      goto BootLinux
+  endif
+endfor
+
+# Clearing Secure Boot Key
+for %d in 0 1 2 3 4 5 6 7 8 9 A B C D E F then
+    if exist FS%d:\acs_tests\bbr\clear_secureboot.flag then
+        FS%d:
+        cd \acs_tests\app
+        # Get SecureBoot value
+        setvar SecureBoot > secure.state
+        # Fallback to default value (assume disabled unless parsed as '01')
+        echo "00" >v secure_boot_on
+        # parse the value
+        parse secure.state 01 1 -s 0 >v secure_boot_on
+        echo "Detected SecureBoot value:"
+        setvar SecureBoot
+        # Proceed only if Secure Boot is enabled (01)
+        if %secure_boot_on% == 01 then
+            echo "Secure Boot is ENABLED. Clearing PK..."
+            if exist UpdateVars.efi and exist NullPK.auth then
+                UpdateVars PK NullPK.auth
+                if %lasterror% == 0 then
+                    echo "PK cleared successfully."
+                    echo "Secure Boot value:"
+                    setvar SecureBoot
+                else
+                    echo "UpdateVars.efi failed. Please verify NullPK.auth and platform state."
+                endif
+            else
+                echo "ERROR: UpdateVars.efi or NullPK.auth not found in acs_tests\app"
+            endif
+        else
+            echo "Secure Boot is already DISABLED (Setup Mode)... skipping PK clearance."
+        endif
+        # cleanup and reboot
+        rm \acs_tests\bbr\clear_secureboot.flag
+        echo > \acs_tests\bbr\boot_tolinuxprompt.flag
+        echo "System will reboot in 5 seconds..."
+        stall 500000
+        reset
+    endif
+endfor
+
 # check if BBSR SCT in progress, if yes resume the run.
 for %b in 0 1 2 3 4 5 6 7 8 9 A B C D E F then
     if exist FS%b:\acs_tests\bbr\bbsr_inprogress.flag then
@@ -84,6 +131,17 @@ for %j in 0 1 2 3 4 5 6 7 8 9 A B C D E F then
 endfor
 :Donebsa
 
+# Run the PFDI test
+for %k in 0 1 2 3 4 5 6 7 8 9 A B C D E F then
+    if exist FS%k:\acs_tests\pfdi\pfdi.nsh then
+        echo " "
+        echo "Running pfdi test"
+        FS%k:\acs_tests\pfdi\pfdi.nsh
+        goto Donepfdi
+    endif
+endfor
+:Donepfdi
+
 # Run the pingtest
 for %m in 0 1 2 3 4 5 6 7 8 9 A B C D E F then
     if exist FS%m:\acs_tests\debug\pingtest.nsh then
@@ -96,7 +154,7 @@ for %m in 0 1 2 3 4 5 6 7 8 9 A B C D E F then
         echo "Running ping test..."
         ifconfig -r
         echo "Waiting for network to come up..."
-        stall 200000
+        stall 2000000
         echo "" > ping.log
         ping 8.8.8.8 >> ping.log
         type ping.log
@@ -124,8 +182,9 @@ for %r in 0 1 2 3 4 5 6 7 8 9 A B C D E F then
 endfor
 :DoneCapsuleUpdate
 
+goto BootLinux
 
-# Boot Linux
+:BootLinux
 for %l in 0 1 2 3 4 5 6 7 8 9 A B C D E F then
     if exist FS%l:\Image and exist FS%l:\yocto_image.flag then
         FS%l:
@@ -136,4 +195,5 @@ for %l in 0 1 2 3 4 5 6 7 8 9 A B C D E F then
         goto DoneImage
     endif
 endfor
+
 :DoneImage

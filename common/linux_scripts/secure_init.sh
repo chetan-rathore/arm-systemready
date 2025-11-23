@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # @file
-# Copyright (c) 2021-2024, Arm Limited or its affiliates. All rights reserved.
+# Copyright (c) 2021-2025, Arm Limited or its affiliates. All rights reserved.
 # SPDX-License-Identifier : Apache-2.0
 
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -71,15 +71,18 @@ mkdir -p $RESULTS_DIR/bbsr/fwts
 
 if [ -f  /bin/bbsr_fwts_tests.ini ]; then
   test_list=`cat /bin/bbsr_fwts_tests.ini | grep -v "^#" | awk '{print $1}' | xargs`
-  echo "Test Executed are $test_list"
   if [ -f "$YOCTO_FLAG" ]; then
-    echo "SystemReady devicetree band ACS v3.0.1" > $RESULTS_DIR/bbsr/fwts/FWTSResults.log
+    # Drop tpm2 for DT systems as these tests are ACPI checks
+    test_list=$(printf '%s\n' $test_list | grep -vw tpm2 | xargs)
+    echo "Test Executed are $test_list"
+    echo "SystemReady devicetree band ACS v3.1.1 (RC0)" > $RESULTS_DIR/bbsr/fwts/FWTSResults.log
     fwts `echo $test_list` -f -r stdout >> $RESULTS_DIR/bbsr/fwts/FWTSResults.log
   else
     if [ "$automation_enabled" == "True" ] && [ "$bbsr_fwts_enabled" == "False" ]; then
       echo "**************BBSR FWTS disabled in config file*******************"
     else
-        echo "SystemReady band ACS v3.0.1" > $RESULTS_DIR/bbsr/fwts/FWTSResults.log
+        echo "Test Executed are $test_list"
+        echo "SystemReady band ACS v3.1.0" > $RESULTS_DIR/bbsr/fwts/FWTSResults.log
         fwts `echo $test_list` -f -r stdout >> $RESULTS_DIR/bbsr/fwts/FWTSResults.log
     fi
   fi
@@ -123,6 +126,18 @@ if [ -d "$RESULTS_DIR" ]; then
       rm -r $RESULTS_DIR/acs_summary
   fi
   /usr/bin/log_parser/main_log_parser.sh $RESULTS_DIR /mnt/acs_tests/config/acs_config.txt /mnt/acs_tests/config/system_config.txt /mnt/acs_tests/config/acs_waiver.json
+  # Creating config directory in the results (secure flow)
+  mkdir -p "$RESULTS_DIR/acs_summary/config"
+  # Copy waiver and system config into results
+  if [ -f /mnt/acs_tests/config/acs_waiver.json ]; then
+    cp /mnt/acs_tests/config/acs_waiver.json "$RESULTS_DIR/acs_summary/config/"
+  fi
+  if [ -f /mnt/acs_tests/config/system_config.txt ]; then
+    cp /mnt/acs_tests/config/system_config.txt "$RESULTS_DIR/acs_summary/config/"
+  fi
+  if [ -f /mnt/acs_tests/config/acs_run_config.ini ]; then
+    cp /mnt/acs_tests/config/acs_run_config.ini "$RESULTS_DIR/acs_summary/config/"
+  fi
   echo "Please wait acs results are syncing on storage medium."
   sync /mnt
   sleep 60

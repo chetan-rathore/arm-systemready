@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # @file
-# Copyright (c) 2021-2024, Arm Limited or its affiliates. All rights reserved.
+# Copyright (c) 2021-2025, Arm Limited or its affiliates. All rights reserved.
 # SPDX-License-Identifier : Apache-2.0
 
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,7 +26,7 @@
 # UEFI_BUILD_ENABLED - Flag to enable building UEFI
 # UEFI_PATH - sub-directory containing UEFI code
 # UEFI_BUILD_MODE - DEBUG or RELEASE
-# UEFI_TOOLCHAIN - Toolchain supported by Linaro uefi-tools: GCC49, GCC48 or GCC47
+# UEFI_TOOLCHAIN - Toolchain supported by Linaro uefi-tools
 # UEFI_PLATFORMS - List of platforms to build
 # UEFI_PLAT_{platform name} - array of platform parameters:
 #     - platname - the name of the platform used by the build
@@ -39,27 +39,26 @@
 TOP_DIR=`pwd`
 . $TOP_DIR/../common/config/systemready-band-source.cfg
 UEFI_PATH=edk2
-UEFI_TOOLCHAIN=GCC49
+UEFI_TOOLCHAIN=GCC
 CROSS_COMPILE=$TOP_DIR/$GCC
 UEFI_LIBC_PATH=edk2-libc
-PATCH_DIR=$TOP_DIR/patches
 OUTDIR=${TOP_DIR}/output
-BSA_EFI_PATH=edk2/Build/Shell/DEBUG_GCC49/AARCH64/
+BSA_EFI_PATH=edk2/Build/Shell/DEBUG_GCC/AARCH64/
 KEYS_DIR=$TOP_DIR/bbsr-keys
 
 do_build()
 {
     pushd $TOP_DIR/$UEFI_PATH
-
-    git checkout ShellPkg/ShellPkg.dsc # Remove if any patches applied
-    if git apply --check $PATCH_DIR/bsa.patch; then
-      echo "Applying BSA Patch ..."
-      git apply $PATCH_DIR/bsa.patch
+    pushd ShellPkg/Application/sysarch-acs
+    if [ -z $BSA_ACS_TAG ]; then
+        echo "No BSA ACS tag defined, use latest main branch source"
+        git checkout main
+        git pull --ff-only origin main
     else
-      echo "Error while applying BSA Patch"
-      exit_fun
+        echo "Checkout tag $BSA_ACS_TAG"
+        git checkout --detach "tags/${BSA_ACS_TAG}"
     fi
-
+    popd
     source ./edksetup.sh
     make -C BaseTools/Source/C
     export EDK2_TOOLCHAIN=$UEFI_TOOLCHAIN
@@ -75,7 +74,7 @@ do_build()
 
     export PACKAGES_PATH=$TOP_DIR/$UEFI_PATH:$TOP_DIR/$UEFI_PATH/$UEFI_LIBC_PATH
     export PYTHON_COMMAND=/usr/bin/python3
-    source ShellPkg/Application/bsa-acs/tools/scripts/acsbuild.sh
+    source ShellPkg/Application/sysarch-acs/tools/scripts/acsbuild.sh bsa
     popd
 }
 
@@ -86,7 +85,7 @@ do_clean()
     PATH="$PATH:$CROSS_COMPILE_DIR"
     source ./edksetup.sh
     make -C BaseTools/Source/C clean
-    rm -rf Build/Shell/DEBUG_GCC49
+    rm -rf Build/Shell/DEBUG_GCC
     popd
 }
 

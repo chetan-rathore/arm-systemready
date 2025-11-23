@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # @file
-# Copyright (c) 2021-2024, Arm Limited or its affiliates. All rights reserved.
+# Copyright (c) 2021-2025, Arm Limited or its affiliates. All rights reserved.
 # SPDX-License-Identifier : Apache-2.0
 
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -76,7 +76,7 @@ copy_recipes()
     rm $TOP_DIR/meta-woden/poky/meta/recipes-kernel/linux/linux-yocto_6.6.bb
 
     #Increase the initramfs size to hold more storage drivers in ACS image
-    sed -i 's/INITRAMFS_MAXSIZE ??= "131072"/INITRAMFS_MAXSIZE ??= "180000"/' $TOP_DIR/meta-woden/poky/meta/conf/bitbake.conf
+    sed -i 's/INITRAMFS_MAXSIZE ??= "131072"/INITRAMFS_MAXSIZE ??= "190000"/' $TOP_DIR/meta-woden/poky/meta/conf/bitbake.conf
 
 
     #copy linux_yocto.bbappend with empty defconfig
@@ -86,10 +86,10 @@ copy_recipes()
 
 
     # recipes accordingly
-    if [ ! -z "$ARM_BSA_TAG" ]; then
-        sed -i -E 's/SRCREV_bsa-acs\s+=\s+"\$\{AUTOREV\}"/SRCREV_bsa-acs = \"'${ARM_BSA_TAG}'"/g' $TOP_DIR/meta-woden/recipes-acs/bsa-acs-uefi/bsa-acs.bb
-        sed -i -E 's/SRCREV_bsa-acs\s+=\s+"\$\{AUTOREV\}"/SRCREV_bsa-acs = \"'${ARM_BSA_TAG}'"/g' $TOP_DIR/meta-woden/recipes-acs/bsa-acs-app/bsa-acs-app.bb
-        sed -i -E 's/SRCREV_bsa-acs\s+=\s+"\$\{AUTOREV\}"/SRCREV_bsa-acs = \"'${ARM_BSA_TAG}'"/g' $TOP_DIR/meta-woden/recipes-acs/bsa-acs-drv/bsa-acs-drv.bb
+    if [ ! -z "$BSA_ACS_TAG" ]; then
+        sed -i -E 's/SRCREV_sysarch-acs\s+=\s+"\$\{AUTOREV\}"/SRCREV_sysarch-acs = \"'${BSA_ACS_TAG}'"/g' $TOP_DIR/meta-woden/recipes-acs/bsa-acs-uefi/bsa-acs.bb
+        sed -i -E 's/SRCREV_sysarch-acs\s+=\s+"\$\{AUTOREV\}"/SRCREV_sysarch-acs = \"'${BSA_ACS_TAG}'"/g' $TOP_DIR/meta-woden/recipes-acs/bsa-acs-app/bsa-acs-app.bb
+        sed -i -E 's/SRCREV_sysarch-acs\s+=\s+"\$\{AUTOREV\}"/SRCREV_sysarch-acs = \"'${BSA_ACS_TAG}'"/g' $TOP_DIR/meta-woden/recipes-acs/bsa-acs-drv/bsa-acs-drv.bb
     fi
 
     if [ ! -z "$EDK2_SRC_TAG" ]; then
@@ -103,14 +103,15 @@ copy_recipes()
 
     if [ ! -z "$EDK2_LIBC_SRC_TAG" ]; then
         sed -i -E 's/SRCREV_edk2-libc\s+=\s+"\$\{AUTOREV\}"/SRCREV_edk2-libc = \"'${EDK2_LIBC_SRC_TAG}'"/g' $TOP_DIR/meta-woden/recipes-acs/bsa-acs-uefi/bsa-acs.bb
+        sed -i -E 's/SRCREV_edk2-libc\s+=\s+"\$\{AUTOREV\}"/SRCREV_edk2-libc = \"'${EDK2_LIBC_SRC_TAG}'"/g' $TOP_DIR/meta-woden/recipes-acs/pfdi/pfdi.bb
     fi
 
     if [ ! -z "$SCT_SRC_TAG" ]; then
         sed -i -E 's/SRCREV_edk2-test\s+=\s+"\$\{AUTOREV\}"/SRCREV_edk2-test = \"'${SCT_SRC_TAG}'"/g' $TOP_DIR/meta-woden/recipes-acs/ebbr-sct/ebbr-sct.bb
     fi
 
-    if [ ! -z "$ARM_LINUX_ACS_TAG" ]; then
-        sed -i -E 's/SRCREV_linux-acs\s+=\s+"\$\{AUTOREV\}"/SRCREV_linux-acs = \"'${ARM_LINUX_ACS_TAG}'"/g' $TOP_DIR/meta-woden/recipes-acs/bsa-acs-drv/bsa-acs-drv.bb
+    if [ ! -z "$BSA_LINUX_ACS_TAG" ]; then
+        sed -i -E 's/SRCREV_linux-acs\s+=\s+"\$\{AUTOREV\}"/SRCREV_linux-acs = \"'${BSA_LINUX_ACS_TAG}'"/g' $TOP_DIR/meta-woden/recipes-acs/bsa-acs-drv/bsa-acs-drv.bb
     fi
 
     if [ ! -z "$EDK2_TEST_PARSER_TAG" ]; then
@@ -120,6 +121,11 @@ copy_recipes()
     if [ ! -z "$SYSTEMREADY_SCRIPTS_TAG" ]; then
         sed -i -E 's/SRCREV_systemready-scripts\s+=\s+"\$\{AUTOREV\}"/SRCREV_systemready-scripts = \"'${SYSTEMREADY_SCRIPTS_TAG}'"/g' $TOP_DIR/meta-woden/recipes-acs/systemready-scripts/systemready-scripts.bb
     fi
+
+    if [ ! -z "$PFDI_ACS_TAG" ];then
+        sed -i -E 's/SRCREV_sysarch-acs\s+=\s+"\$\{AUTOREV\}"/SRCREV_sysarch-acs = \"'${PFDI_ACS_TAG}'"/g' $TOP_DIR/meta-woden/recipes-acs/pfdi/pfdi.bb
+    fi
+
     # create a bsa-acs patches directory in meta-woden/recipes-acs/bsa-acs-uefi and copy requires BSA patches
     mkdir $TOP_DIR/meta-woden/recipes-acs/bsa-acs-uefi/bsa-acs
     cp $TOP_DIR/../patches/* $TOP_DIR/meta-woden/recipes-acs/bsa-acs-uefi/bsa-acs/.

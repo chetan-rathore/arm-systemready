@@ -47,7 +47,6 @@ mdev -s
 
 echo "Starting disk drivers"
 insmod /lib/modules/xhci-pci-renesas.ko
-insmod /lib/modules/xhci-pci.ko
 insmod /lib/modules/nvme-core.ko
 insmod /lib/modules/nvme.ko
 
@@ -77,6 +76,8 @@ if [ "$automation_enabled" == "True" ]; then
 
   sbsa_command="`python3 /mnt/acs_tests/parser/Parser.py -sbsa`"
   sbsa_enabled="`python3 /mnt/acs_tests/parser/Parser.py -automation_sbsa_run`"
+
+  sbmr_enabled="`python3 /mnt/acs_tests/parser/Parser.py -automation_sbmr_in_band_run`"
 fi
 
 if [ $ADDITIONAL_CMD_OPTION != "noacs" ]; then
@@ -94,7 +95,7 @@ if [ $ADDITIONAL_CMD_OPTION != "noacs" ]; then
     echo "Linux Boot with SetVirtualMap enabled"
     mkdir -p /mnt/acs_results/SetVAMapMode/fwts
     echo "Executing FWTS"
-    echo "SystemReady band ACS v3.0.1" > /mnt/acs_results/SetVAMapMode/fwts/FWTSResults.log
+    echo "SystemReady band ACS v3.1.0" > /mnt/acs_results/SetVAMapMode/fwts/FWTSResults.log
     fwts  -r stdout -q --uefi-set-var-multiple=1 --uefi-get-mn-count-multiple=1 --sbbr esrt uefibootpath aest cedt slit srat hmat pcct pdtt bgrt bert einj erst hest sdei nfit iort mpam ibft ras2 >> /mnt/acs_results/SetVAMapMode/fwts/FWTSResults.log
     sync /mnt
     sleep 3
@@ -116,6 +117,7 @@ if [ $ADDITIONAL_CMD_OPTION != "noacs" ]; then
   lscpu > /mnt/acs_results/linux_dump/lscpu.log
   lsblk > /mnt/acs_results/linux_dump/lsblk.log
   lsusb > /mnt/acs_results/linux_dump/lsusb.log
+  lshw > /mnt/acs_results/linux_dump/lshw.log
   dmidecode > /mnt/acs_results/linux_dump/dmidecode.log
   dmidecode --dump-bin /mnt/acs_results/linux_dump/dmidecode.bin >> /mnt/acs_results/linux_dump/dmidecode.log 2>&1
   uname -a > /mnt/acs_results/linux_dump/uname.log
@@ -151,6 +153,14 @@ if [ $ADDITIONAL_CMD_OPTION != "noacs" ]; then
   sleep 5
   echo "Linux Debug Dump - Completed"
 
+  # Linux Device Driver script run
+  echo "Running Device Driver Matching Script"
+  cd /usr/bin/
+  ./device_driver_sr.sh > /mnt/acs_results/linux_dump/device_driver.log
+  cd -
+  echo "Device Driver script run completed"
+  sync /mnt
+  sleep 5
 
   # FWTS (SBBR) Execution
   echo "Executing FWTS for SBBR"
@@ -158,9 +168,15 @@ if [ $ADDITIONAL_CMD_OPTION != "noacs" ]; then
     echo "********* FWTS is disabled in config file**************"
   else
     mkdir -p /mnt/acs_results/fwts
-    echo "SystemReady band ACS v3.0.1" > /mnt/acs_results/fwts/FWTSResults.log
+    if [ -f /lib/modules/smccc_test.ko ]; then
+      echo "Loading FWTS SMCCC module"
+      insmod /lib/modules/smccc_test.ko
+    else
+      echo "Error: FWTS SMCCC kernel Driver is not found."
+    fi
+    echo "SystemReady band ACS v3.1.0" > /mnt/acs_results/fwts/FWTSResults.log
     if [ "$automation_enabled" == "False" ]; then
-      fwts  -r stdout -q --uefi-set-var-multiple=1 --uefi-get-mn-count-multiple=1 --sbbr esrt uefibootpath aest cedt slit srat hmat pcct pdtt bgrt bert einj erst hest sdei nfit iort mpam ibft ras2 >> /mnt/acs_results/fwts/FWTSResults.log
+      fwts  -r stdout -q --uefi-set-var-multiple=1 --uefi-get-mn-count-multiple=1 --sbbr aest cedt slit srat hmat pcct pdtt bgrt bert einj erst hest sdei nfit iort mpam ibft ras2 smccc >> /mnt/acs_results/fwts/FWTSResults.log
     else
       $fwts_command -r stdout -q >> /mnt/acs_results/fwts/FWTSResults.log
     fi
@@ -169,6 +185,32 @@ if [ $ADDITIONAL_CMD_OPTION != "noacs" ]; then
     echo "FWTS Execution - Completed"
   fi
 
+  run_sbmr_in_band(){
+      echo "Call SBMR ACS in-band test"
+      cd /usr/bin
+      python redfish-finder
+      cd sbmr-acs
+      ./run-sbmr-acs.sh linux
+      mkdir -p /mnt/acs_results/sbmr
+      cp -r logs /mnt/acs_results/sbmr/sbmr_in_band_logs
+      cd /
+      echo "SBMR ACS in-band run is completed\n"
+  }
+
+  # Run SBMR-ACS In-Band Tests 
+  if [ "$automation_enabled" == "True" ]; then
+    if [ "$sbmr_enabled" == "False" ]; then
+      echo "********* SBMR In-Band is disabled in config file**************"
+    else
+      run_sbmr_in_band
+      sync /mnt
+      sleep 3
+      echo "NOTE: This ACS image runs SBMR IN-BAND tests ONLY." 1>&2
+      echo "For SBMR OUT-OF-BAND tests, see: https://github.com/ARM-software/sbmr-acs.git" 1>&2
+    fi
+  else
+    echo "SBMR-ACS In-Band test is disabled by default, please enable in config file to run SBMR-ACS In-Band test"
+  fi
 
   # Linux BSA Execution
   echo "Running Linux BSA tests"
@@ -178,11 +220,15 @@ if [ $ADDITIONAL_CMD_OPTION != "noacs" ]; then
     mkdir -p /mnt/acs_results/linux
     if [ -f  /lib/modules/bsa_acs.ko ]; then
       insmod /lib/modules/bsa_acs.ko
-      echo "SystemReady band ACS v3.0.1" > /mnt/acs_results/linux/BsaResultsApp.log
+      echo "SystemReady band ACS v3.1.0" > /mnt/acs_results/linux/BsaResultsApp.log
       if [ "$automation_enabled" == "False" ]; then
-        /bin/bsa >> /mnt/acs_results/linux/BsaResultsApp.log
+        # based on previous certification/complaince inputs, side effects are seen
+        # when bsa/sbsa test changes config of PCIe devices whose class code are
+        # display port, mass storage, network controller...SKIP them
+        /bin/bsa --skip-dp-nic-ms >> /mnt/acs_results/linux/BsaResultsApp.log
       else
-        $bsa_command >> /mnt/acs_results/linux/BsaResultsApp.log
+        echo "Running command $bsa_command --skip-dp-nic-ms"
+        $bsa_command --skip-dp-nic-ms  >> /mnt/acs_results/linux/BsaResultsApp.log
       fi
       dmesg | sed -n 'H; /PE_INFO/h; ${g;p;}' > /mnt/acs_results/linux/BsaResultsKernel.log
       sync /mnt
@@ -203,8 +249,9 @@ if [ $ADDITIONAL_CMD_OPTION != "noacs" ]; then
       mkdir -p /mnt/acs_results/linux
       if [ -f  /lib/modules/sbsa_acs.ko ]; then
         insmod /lib/modules/sbsa_acs.ko
-        echo "SystemReady band ACS v3.0.1" > /mnt/acs_results/linux/SbsaResultsApp.log
-        $sbsa_command >> /mnt/acs_results/linux/SbsaResultsApp.log
+        echo "SystemReady band ACS v3.1.0" > /mnt/acs_results/linux/SbsaResultsApp.log
+        echo "Running command $sbsa_command --skip-dp-nic-ms"
+        $sbsa_command --skip-dp-nic-ms >> /mnt/acs_results/linux/SbsaResultsApp.log
         dmesg | sed -n 'H; /PE_INFO/h; ${g;p;}' > /mnt/acs_results/linux/SbsaResultsKernel.log
         sync /mnt
         sleep 5
@@ -231,21 +278,6 @@ if [ $ADDITIONAL_CMD_OPTION != "noacs" ]; then
     echo "SCT result does not exist, cannot run edk2-test-parser tool cannot run"
   fi
 
-
-  # Device Driver script run
-  if [ -f "/mnt/acs_results/uefi_dump/devices.log" ] && [ -f "/mnt/acs_results/uefi_dump/drivers.log" ] && [ -f "/mnt/acs_results/uefi_dump/dh.log" ]; then
-    echo "Running Device Driver Matching Script"
-    cd /usr/bin/
-    ./device_driver.sh --md /mnt/acs_results/linux_dump/device_driver.log /mnt/acs_results/uefi_dump/devices.log /mnt/acs_results/uefi_dump/drivers.log /mnt/acs_results/uefi_dump/dh.log > /dev/null 2>&1
-    cd -
-    echo "Device Driver script run completed"
-    sync /mnt
-    sleep 5
-  else
-    echo "Devices/Driver/dh log does not exist, cannot run the script"
-  fi
-
-
   # ACS log parser run
   echo "Running acs log parser tool "
   if [ -d "/mnt/acs_results" ]; then
@@ -260,6 +292,18 @@ if [ $ADDITIONAL_CMD_OPTION != "noacs" ]; then
   echo "Please wait acs results are syncing on storage medium."
   sync /mnt
   sleep 60
+  #copying acs_run_config.ini into results directory.
+  mkdir -p /mnt/acs_results/acs_summary/config
+  cp /mnt/acs_tests/config/acs_run_config.ini /mnt/acs_results/acs_summary/config/
+  # Copying acs_waiver.json into result directory.
+  if [ -f /mnt/acs_tests/config/acs_waiver.json ]; then
+    cp /mnt/acs_tests/config/acs_waiver.json /mnt/acs_results/acs_summary/config/
+  fi
+  # Copying system_config.txt into result directory
+  if [ -f /mnt/acs_tests/config/system_config.txt ]; then
+    cp /mnt/acs_tests/config/system_config.txt /mnt/acs_results/acs_summary/config/
+  fi
+  sync /mnt
 
   echo "ACS automated test suites run is completed."
   echo "Please reboot to run BBSR tests if not done"
@@ -278,6 +322,7 @@ else
   echo " To run BSA test suite, execute /usr/bin/bsa.sh"
   echo " To run SBSA test suite, execute /usr/bin/sbsa.sh"
   echo " To run SCT test suite, execute /usr/bin/fwts.sh"
+  echo " To run SBMR test suite, execute /usr/bin/sbmr.sh"
   echo ""
 fi
 

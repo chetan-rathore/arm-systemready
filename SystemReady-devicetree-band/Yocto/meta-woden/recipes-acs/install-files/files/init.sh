@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Copyright (c) 2023-2024, Arm Limited or its affiliates. All rights reserved.
+# Copyright (c) 2023-2025, Arm Limited or its affiliates. All rights reserved.
 # SPDX-License-Identifier : Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,6 +25,11 @@ if ! grep -q "ttySC0" /etc/securetty; then
   echo "added ttySC0"
 fi
 
+if ! grep -q "ttyAML0" /etc/securetty; then
+  echo "ttyAML0" >> /etc/securetty
+  echo "added ttyAML0"
+fi
+
 sleep 5
 
 echo "Attempting to mount the results partition ..."
@@ -39,6 +44,13 @@ else
 fi
 sleep 3
 
+if [ -f /mnt/acs_tests/bbr/boot_tolinuxprompt.flag ]; then
+  echo "Booted after Secure Boot clearance. Skipping ACS tests, Booting to Linux terminal..."
+  rm /mnt/acs_tests/bbr/boot_tolinuxprompt.flag
+ # echo "Please press <Enter> to continue ..."
+  exit 0
+fi
+
 #Skip running of ACS Tests if the grub option is added
 ADDITIONAL_CMD_OPTION="";
 ADDITIONAL_CMD_OPTION=`cat /proc/cmdline | awk '{ print $NF}'`
@@ -51,11 +63,22 @@ if [ $ADDITIONAL_CMD_OPTION != "noacs" ]; then
       echo "Call BBSR ACS in Linux"
       /usr/bin/secure_init.sh
       echo "BBSR ACS run is completed\n"
-      echo "SecureBoot keys needs to be manually cleared, please refer to BBSR_ACS_Verification.md guide for the steps"
-      echo "https://github.com/ARM-software/arm-systemready/blob/main/docs/BBSR_ACS_Verification.md"
-      echo "Please press <Enter> to continue ..."
-      echo -e -n "\n"
-      exit 0
+      secureboot_state=$(hexdump -v -e '1/1 "%02x"' /sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c 2>/dev/null | tail -c 2)
+      if [ "$secureboot_state" = "01" ]; then
+        echo -e "\033[1;31m*** Secure Boot is ENABLED. Disabling Secure Boot.....     ***\033[0m"
+        touch /mnt/acs_tests/bbr/clear_secureboot.flag
+        sync
+        umount /mnt
+        echo "Rebooting system to enter UEFI shell"
+        sleep 1
+        reboot
+        sleep 3
+      else
+        echo "Secure Boot is not enabled. Skipping secureboot PK clearance"
+        echo "Please press <Enter> to continue ..."
+        echo -e -n "\n"
+        exit 0
+      fi
     fi
 
     check_flag=0
@@ -86,6 +109,8 @@ if [ $ADDITIONAL_CMD_OPTION != "noacs" ]; then
       lspci -vvv &> $LINUX_DUMP_DIR/lspci.log
       lsusb    > $LINUX_DUMP_DIR/lsusb.log
       uname -a > $LINUX_DUMP_DIR/uname.log
+      dmesg > $LINUX_DUMP_DIR/dmesg.log
+      journalctl > $LINUX_DUMP_DIR/journalctl.log
       cat /proc/interrupts > $LINUX_DUMP_DIR/interrupts.log
       cat /proc/cpuinfo    > $LINUX_DUMP_DIR/cpuinfo.log
       cat /proc/meminfo    > $LINUX_DUMP_DIR/meminfo.log
@@ -105,11 +130,17 @@ if [ $ADDITIONAL_CMD_OPTION != "noacs" ]; then
 
       # FWTS EBBR run
       mkdir -p /mnt/acs_results_template/acs_results/fwts
+      if [ -f /lib/modules/*/kernel/smccc_test/smccc_test.ko ]; then
+        echo "Loading FWTS SMCCC module"
+        insmod /lib/modules/*/kernel/smccc_test/smccc_test.ko
+      else
+        echo "Error: FWTS SMCCC kernel Driver is not found."
+      fi
       echo "Executing FWTS for EBBR"
       test_list=`cat /usr/bin/ir_bbr_fwts_tests.ini | grep -v "^#" | awk '{print $1}' | xargs`
       echo "Test Executed are $test_list"
-      echo "SystemReady devicetree band ACS v3.0.1" > /mnt/acs_results_template/acs_results/fwts/FWTSResults.log
-      /usr/bin/fwts --ebbr `echo $test_list` -r stdout >> /mnt/acs_results_template/acs_results/fwts/FWTSResults.log
+      echo "SystemReady devicetree band ACS v3.1.1 (RC0)" > /mnt/acs_results_template/acs_results/fwts/FWTSResults.log
+      /usr/bin/fwts --ebbr `echo $test_list` smccc -r stdout >> /mnt/acs_results_template/acs_results/fwts/FWTSResults.log
       echo -e -n "\n"
       sync /mnt
       sleep 5
@@ -121,8 +152,8 @@ if [ $ADDITIONAL_CMD_OPTION != "noacs" ]; then
       if [ -f /lib/modules/*/kernel/bsa_acs/bsa_acs.ko ]; then
         echo "Running Linux BSA tests"
         insmod /lib/modules/*/kernel/bsa_acs/bsa_acs.ko
-        echo "SystemReady devicetree band ACS v3.0.1" > /mnt/acs_results_template/acs_results/linux_acs/bsa_acs_app/BSALinuxResults.log
-        bsa >> /mnt/acs_results_template/acs_results/linux_acs/bsa_acs_app/BSALinuxResults.log
+        echo "SystemReady devicetree band ACS v3.1.1 (RC0)" > /mnt/acs_results_template/acs_results/linux_acs/bsa_acs_app/BSALinuxResults.log
+        bsa --skip-dp-nic-ms >> /mnt/acs_results_template/acs_results/linux_acs/bsa_acs_app/BSALinuxResults.log
         dmesg | sed -n 'H; /PE_INFO/h; ${g;p;}' > /mnt/acs_results_template/acs_results/linux_acs/bsa_acs_app/BsaResultsKernel.log
         sync /mnt
         sleep 5
@@ -161,10 +192,12 @@ if [ $ADDITIONAL_CMD_OPTION != "noacs" ]; then
         fi
         echo "Running dt-validate tool "
         dt-validate -s /usr/bin/processed_schema.json -m /home/root/fdt/fdt 2>> /mnt/acs_results_template/acs_results/linux_tools/dt-validate.log
-        sed -i '1s/^/DeviceTree bindings of Linux kernel version: 6.10 \ndtschema version: 2025.2 \n\n/' /mnt/acs_results_template/acs_results/linux_tools/dt-validate.log
         if [ ! -s /mnt/acs_results_template/acs_results/linux_tools/dt-validate.log ]; then
           echo "The FDT is compliant according to schema " >> /mnt/acs_results_template/acs_results/linux_tools/dt-validate.log
         fi
+        sed -i '1s/^/SystemReady devicetree band ACS v3.1.1 (RC0) \nDeviceTree bindings of Linux kernel version: 6.16 \ndtschema version: 2025.02 \n\n/' /mnt/acs_results_template/acs_results/linux_tools/dt-validate.log
+        # Run dt parser on dt-validate log to categorize failures
+        /usr/bin/systemready-scripts/dt-parser.py /mnt/acs_results_template/acs_results/linux_tools/dt-validate.log --print 2>&1 | tee /mnt/acs_results_template/acs_results/linux_tools/dt-validate-parser.log
       else
         echo  "Error: The FDT devicetree file, fdt, does not exist at /sys/firmware/fdt. Cannot run dt-schema tool" | tee /mnt/acs_results_template/acs_results/linux_tools/dt-validate.log
       fi
@@ -224,24 +257,71 @@ if [ $ADDITIONAL_CMD_OPTION != "noacs" ]; then
       fi
     else
       if [ -f /mnt/acs_tests/app/capsule_update_done.flag ]; then
-        fw_pattern="FwVersion\s*-\s*(0x[0-9A-Fa-f]+)"
-        fw_status_pattern="LastAttemptStatus\s*-\s*(0x[0-9A-Fa-f]+)"
-
-        prev_fw_ver=$(python3 /usr/bin/extract_capsule_fw_version.py $fw_pattern /mnt/acs_results_template/fw/CapsuleApp_ESRT_table_info_before_update.log)
-        cur_fw_ver=$(python3 /usr/bin/extract_capsule_fw_version.py $fw_pattern /mnt/acs_results_template/fw/CapsuleApp_ESRT_table_info_after_update.log)
-        last_attempted_status=$(python3 /usr/bin/extract_capsule_fw_version.py $fw_status_pattern /mnt/acs_results_template/fw/CapsuleApp_ESRT_table_info_after_update.log)
-
-
+        fw_pattern="^ *FwVersion\s*-\s*(0x[0-9A-Fa-f]+)"
+        fw_status_pattern="^ *LastAttemptStatus\s*-\s*(0x[0-9A-Fa-f]+)"
+        fw_class_pattern="^ *FwClass\s*-\s*([A-Fa-f0-9\-]+)"
         fw_status="0x0"
-        echo "Testing ESRT FW version update" >> /mnt/acs_results_template/fw/capsule_test_results.log
-        echo "INFO: prev version: $prev_fw_ver,  current version: $cur_fw_ver, last attempted status: $last_attempted_status" >> /mnt/acs_results_template/fw/capsule_test_results.log
-        if [ "$((cur_fw_ver))" -gt "$((prev_fw_ver))" ] && [ "$((last_attempted_status))" == "$((fw_status))" ]; then
-          echo "RESULTS: PASSED" >> /mnt/acs_results_template/fw/capsule_test_results.log
-          echo "Capsule update has passed"
-        else
-          echo "RESULTS: FAILED" >> /mnt/acs_results_template/fw/capsule_test_results.log
-          echo "Capsule update has failed"
-        fi
+        extract_script_path="/usr/bin/extract_capsule_fw_version.py"
+        before_update_log="/mnt/acs_results_template/fw/CapsuleApp_ESRT_table_info_before_update.log"
+        after_update_log="/mnt/acs_results_template/fw/CapsuleApp_ESRT_table_info_after_update.log"
+
+        i=0
+        for val in $(python3 "$extract_script_path" "$fw_class_pattern" "$before_update_log" | tr '\n' ' '); do
+          eval "fw_class_$i='$val'"
+          i=$((i+1))
+        done
+
+        i=0
+        for val in $(python3 "$extract_script_path" "$fw_guid" "$before_update_log" | tr '\n' ' '); do
+          eval "fw_guid_$i='$val'"
+          i=$((i+1))
+        done
+
+        i=0
+        for val in $(python3 "$extract_script_path" "$fw_pattern" "$before_update_log" | tr '\n' ' '); do
+          eval "prev_fw_$i='$val'"
+          i=$((i+1))
+        done
+        entry_count=$i
+
+        i=0
+        for val in $(python3 "$extract_script_path" "$fw_pattern" "$after_update_log" | tr '\n' ' '); do
+          eval "cur_fw_$i='$val'"
+          i=$((i+1))
+        done
+
+        i=0
+        for val in $(python3 "$extract_script_path" "$fw_status_pattern" "$after_update_log" | tr '\n' ' '); do
+          eval "status_fw_$i='$val'"
+          i=$((i+1))
+        done
+
+        echo "Testing ESRT FW version update" > /mnt/acs_results_template/fw/capsule_test_results.log
+        overall_result="PASSED"
+        i=0
+        while [ $i -lt $entry_count ]; do
+          eval prev_val=\$prev_fw_$i
+          eval cur_val=\$cur_fw_$i
+          eval status_val=\$status_fw_$i
+          eval guid_val=\$fw_class_$i
+
+          [ -z "$status_val" ] && status_val="0xFFFFFFFF"
+
+          echo "INFO: Fmp Payload GUID:$guid_val, prev version: $prev_val, current version: $cur_val, last attempted status: $status_val" >> /mnt/acs_results_template/fw/capsule_test_results.log
+
+          prev_ver=$(printf "%d" "$prev_val")
+          cur_ver=$(printf "%d" "$cur_val")
+          prev_status=$(printf "%d" "$status_val")
+          expected_status=$(printf "%d" "$fw_status")
+          if [ "$cur_ver" -gt "$prev_ver" ] && [ "$prev_status" -eq "$expected_status" ]; then
+            echo "RESULTS: Fmp Payload  with GUID $guid_val was successfully update -- PASSED" >> /mnt/acs_results_template/fw/capsule_test_results.log
+          else
+            echo "RESULTS: Fmp Payload  with GUID $guid_val failed to update -- FAILED" >> /mnt/acs_results_template/fw/capsule_test_results.log
+            overall_result="FAILED"
+          fi
+          i=$((i+1))
+        done
+        echo "RESULTS: Overall Capsule Update Result: $overall_result" >> /mnt/acs_results_template/fw/capsule_test_results.log
         rm /mnt/acs_tests/app/capsule_update_done.flag
       elif [ -f /mnt/acs_tests/app/capsule_update_unsupport.flag ]; then
         echo "Capsule update has failed"
@@ -272,8 +352,9 @@ if [ $ADDITIONAL_CMD_OPTION != "noacs" ]; then
         echo "Running post scripts "
         cd /mnt/acs_results_template
         mkdir -p /mnt/acs_results_template/acs_results/post-script
-        /usr/bin/systemready-scripts/check-sr-results.py --dir /mnt/acs_results_template > /mnt/acs_results_template/acs_results/post-script/post-script.log 2>&1
-        cd -
+        #/usr/bin/systemready-scripts/check-sr-results.py --dir /mnt/acs_results_template > /mnt/acs_results_template/acs_results/post-script/post-script.log 2>&1
+        /usr/bin/systemready-scripts/check-sr-results.py --dir /mnt/acs_results_template 2>&1 | tee /mnt/acs_results_template/acs_results/post-script/post-script.log
+		cd -
       fi
       sync /mnt
       sleep 5
@@ -286,6 +367,15 @@ if [ $ADDITIONAL_CMD_OPTION != "noacs" ]; then
           rm -r /mnt/acs_results_template/acs_results/acs_summary
         fi
       /usr/bin/log_parser/main_log_parser.sh /mnt/acs_results_template/acs_results /mnt/acs_tests/config/acs_config.txt /mnt/acs_tests/config/system_config.txt /mnt/acs_tests/config/acs_waiver.json
+      fi
+      mkdir -p /mnt/acs_results_template/acs_results/acs_summary/config
+      # Copying acs_waiver.json into result directory.
+      if [ -f /mnt/acs_tests/config/acs_waiver.json ]; then
+        cp /mnt/acs_tests/config/acs_waiver.json /mnt/acs_results_template/acs_results/acs_summary/config/
+      fi
+      # Copying system_config.txt into result directory
+      if [ -f /mnt/acs_tests/config/system_config.txt ]; then
+        cp /mnt/acs_tests/config/system_config.txt /mnt/acs_results_template/acs_results/acs_summary/config/
       fi
       echo "Please wait acs results are syncing on storage medium."
       sync /mnt

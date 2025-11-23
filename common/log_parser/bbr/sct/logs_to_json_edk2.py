@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
+
+# @file
 # Copyright (c) 2024-2025, Arm Limited or its affiliates. All rights reserved.
 # SPDX-License-Identifier : Apache-2.0
-#
+
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -13,6 +15,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 
 import argparse
 import json
@@ -72,12 +75,10 @@ def parse_edk2_log(input_file):
             # Check if this row is a header row by looking for our target column names.
             lower_cols = [col.strip().lower() for col in cols]
             if not header_found and any(t in lower_cols for t in targets):
-                col_index_map = {}
-                for idx, col in enumerate(lower_cols):
-                    if col in targets:
-                        col_index_map[col] = idx
+                # Capture *all* column names, not just targets
+                col_index_map = {col: idx for idx, col in enumerate(lower_cols)}
                 header_found = True
-                continue  # Skip processing the header row
+                continue
 
             # If header is found, skip separator rows (rows that contain only dashes)
             if header_found:
@@ -86,11 +87,23 @@ def parse_edk2_log(input_file):
 
                 # Build a record based on the header column positions.
                 record = { output_key: "" for output_key in targets.values() }
+                # Extract known columns
                 for key, output_key in targets.items():
                     idx = col_index_map.get(key)
                     if idx is not None and idx < len(cols):
                         record[output_key] = cols[idx].strip()
-                # Append the record if at least one target field is non-empty.
+
+                # Capture sub_Test_Description correctly
+
+                # If there's a 'name' column (typical for grouped tables like RuntimeServicesTest, BootServicesTest, etc.)
+                # then use that column as description.
+                # Otherwise (like GenericTest), fall back to the first column.
+                name_idx = col_index_map.get("name")
+
+                if name_idx is not None and name_idx < len(cols):
+                    # Extract from 'name' column
+                    record["sub_Test_Description"] = cols[name_idx].strip()
+                # Append record if any target field is non-empty
                 if any(record.values()):
                     results.append(record)
         else:

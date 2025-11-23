@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2024, Arm Limited or its affiliates. All rights reserved.
+# Copyright (c) 2024-2025, Arm Limited or its affiliates. All rights reserved.
 # SPDX-License-Identifier : Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -54,9 +54,9 @@ def detect_columns_used(subtests):
 def generate_bar_chart(suite_summary):
     labels = ['Passed', 'Failed', 'Skipped']
     sizes = [
-        suite_summary.get('total_PASSED', 0),
-        suite_summary.get('total_FAILED', 0),
-        suite_summary.get('total_SKIPPED', 0)
+        suite_summary.get('total_passed', 0),
+        suite_summary.get('total_failed', 0),
+        suite_summary.get('total_skipped', 0)
     ]
     colors = ['#66bb6a', '#ef5350', '#f39c12']
 
@@ -267,15 +267,15 @@ def generate_html(suite_summary, test_results_list, output_html_path, is_summary
                     </tr>
                     <tr>
                         <td>Passed</td>
-                        <td class="pass">{{ total_PASSED }}</td>
+                        <td class="pass">{{ total_passed }}</td>
                     </tr>
                     <tr>
                         <td>Failed</td>
-                        <td class="fail">{{ total_FAILED }}</td>
+                        <td class="fail">{{ total_failed }}</td>
                     </tr>
                     <tr>
                         <td>Skipped</td>
-                        <td class="skipped">{{ total_SKIPPED }}</td>
+                        <td class="skipped">{{ total_skipped }}</td>
                     </tr>
                 </tbody>
             </table>
@@ -367,7 +367,7 @@ def generate_html(suite_summary, test_results_list, output_html_path, is_summary
     """)
 
     # Calculate total tests
-    total_tests = suite_summary.get('total_PASSED', 0) + suite_summary.get('total_FAILED', 0) + suite_summary.get('total_SKIPPED', 0)
+    total_tests = suite_summary.get('total_passed', 0) + suite_summary.get('total_failed', 0) + suite_summary.get('total_skipped', 0)
 
     # If not summary page, generate chart data
     if not is_summary_page:
@@ -379,9 +379,9 @@ def generate_html(suite_summary, test_results_list, output_html_path, is_summary
     html_content = template.render(
         test_suite_name=test_suite_name,
         total_tests=total_tests,
-        total_PASSED=suite_summary.get("total_PASSED", 0),
-        total_FAILED=suite_summary.get("total_FAILED", 0),
-        total_SKIPPED=suite_summary.get("total_SKIPPED", 0),
+        total_passed=suite_summary.get("total_passed", 0),
+        total_failed=suite_summary.get("total_failed", 0),
+        total_skipped=suite_summary.get("total_skipped", 0),
         test_results_list=test_results_list,
         is_summary_page=is_summary_page,
         include_drop_down=include_drop_down,
@@ -450,6 +450,7 @@ def main():
                     total_tests += 1
                     test_status = 'PASSED'
                     has_skipped = False
+                    has_pass = False
 
                     if test.get('subtests'):
                         for subtest in test['subtests']:
@@ -463,9 +464,11 @@ def main():
                                 # treat any other status as failure
                                 test_status = 'FAILED'
                                 break
+                            elif subtest_status == 'PASSED':
+                                has_pass = True
                         else:
-                            if has_skipped and test_status != 'FAILED':
-                                test_status = 'SKIPPED'
+                            if test_status != 'FAILED':
+                                test_status = 'PASSED' if has_pass else 'SKIPPED'
                     else:
                         test_status = 'SKIPPED'
 
@@ -487,9 +490,9 @@ def main():
 
     # Build the suite_summary
     suite_summary = {
-        'total_PASSED': total_passed,
-        'total_FAILED': total_failed,
-        'total_SKIPPED': total_skipped,
+        'total_passed': total_passed,
+        'total_failed': total_failed,
+        'total_skipped': total_skipped,
     }
 
     if total_tests == 0:

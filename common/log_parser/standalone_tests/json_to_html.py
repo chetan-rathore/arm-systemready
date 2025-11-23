@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2024, Arm Limited or its affiliates. All rights reserved.
+# Copyright (c) 2024-2025, Arm Limited or its affiliates. All rights reserved.
 # SPDX-License-Identifier : Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -65,9 +65,9 @@ def detect_columns_used(subtests):
 def generate_bar_chart(suite_summary):
     labels = ['Passed', 'Failed', 'Failed with Waiver']  # We track "Failed with Waiver" separately
     sizes = [
-        suite_summary.get('total_PASSED', 0),
-        suite_summary.get('total_FAILED', 0),
-        suite_summary.get('total_FAILED_WITH_WAIVER', 0)
+        suite_summary.get('total_passed', 0),
+        suite_summary.get('total_failed', 0),
+        suite_summary.get('total_failed_with_waiver', 0)
     ]
     colors = ['#66bb6a', '#ef5350', '#f39c12']
 
@@ -246,15 +246,15 @@ def generate_html(suite_summary, test_results_list, output_html_path,
                 </tr>
                 <tr>
                     <td>Passed</td>
-                    <td class="pass">{{ total_PASSED }}</td>
+                    <td class="pass">{{ total_passed }}</td>
                 </tr>
                 <tr>
                     <td>Failed</td>
-                    <td class="fail">{{ total_FAILED }}</td>
+                    <td class="fail">{{ total_failed }}</td>
                 </tr>
                 <tr>
                     <td>Failed with Waiver</td>
-                    <td class="waiver">{{ total_FAILED_WITH_WAIVER }}</td>
+                    <td class="waiver">{{ total_failed_with_waiver }}</td>
                 </tr>
             </tbody>
         </table>
@@ -268,7 +268,7 @@ def generate_html(suite_summary, test_results_list, output_html_path,
             {% for idx, test_results in enumerate(test_results_list) %}
             {% if test_results and test_results[0] %}
             {% set test = test_results[0] %}
-            <option value="section{{ idx }}">{{ test.Test_suite_name }} - {{ test.Test_case }}</option>
+            <option value="section{{ idx }}">{{ test.Test_suite }} - {{ test.Test_case }}</option>
             {% endif %}
             {% endfor %}
         </select>
@@ -282,7 +282,7 @@ def generate_html(suite_summary, test_results_list, output_html_path,
         {% endif %}
         {% for test in test_results %}
 
-        <div class="test-suite-header">Test Suite: {{ test.Test_suite_name }}</div>
+        <div class="test-suite-header">Test Suite: {{ test.Test_suite }}</div>
         <div class="test-suite-description">Description: {{ test.Test_suite_description }}</div>
 
         <div class="test-case-header">Test Case: {{ test.Test_case }}</div>
@@ -323,13 +323,19 @@ def generate_html(suite_summary, test_results_list, output_html_path,
                     </td>
                     {# Combine pass, fail, skip, abort, warning reasons into one "Reason" column #}
                     {% set all_reasons = [] %}
-                    {% if r.pass_reasons %}{% for reason in r.pass_reasons %}{% set _ = all_reasons.append(reason) %}{% endfor %}{% endif %}
-                    {% if r.fail_reasons %}{% for reason in r.fail_reasons %}{% set _ = all_reasons.append(reason) %}{% endfor %}{% endif %}
-                    {% if r.abort_reasons %}{% for reason in r.abort_reasons %}{% set _ = all_reasons.append(reason) %}{% endfor %}{% endif %}
-                    {% if r.skip_reasons %}{% for reason in r.skip_reasons %}{% set _ = all_reasons.append(reason) %}{% endfor %}{% endif %}
-                    {% if r.warning_reasons %}{% for reason in r.warning_reasons %}{% set _ = all_reasons.append(reason) %}{% endfor %}{% endif %}
+                    {% for reasons in [r.pass_reasons, r.fail_reasons, r.abort_reasons, r.skip_reasons, r.warning_reasons] if reasons %}
+                        {% for reason in reasons %}
+                            {% if reason is iterable and reason is not string %}
+                                {% for subreason in reason %}
+                                    {% set _ = all_reasons.append(subreason) %}
+                                {% endfor %}
+                            {% else %}
+                                {% set _ = all_reasons.append(reason) %}
+                            {% endif %}
+                        {% endfor %}
+                    {% endfor %}
                     <td>
-                        {{ all_reasons|join("; ") if all_reasons else "N/A" }}
+                        {{ all_reasons|join("<br>")|safe if all_reasons else "N/A" }}
                     </td>
                     <td>
                         {{ r.waiver_reason if r.waiver_reason else "N/A" }}
@@ -347,9 +353,9 @@ def generate_html(suite_summary, test_results_list, output_html_path,
 """)
 
     # Compute total tests for summary
-    total_tests = (suite_summary.get('total_PASSED', 0) +
-                   suite_summary.get('total_FAILED', 0) +
-                   suite_summary.get('total_FAILED_WITH_WAIVER', 0))
+    total_tests = (suite_summary.get('total_passed', 0) +
+                   suite_summary.get('total_failed', 0) +
+                   suite_summary.get('total_failed_with_waiver', 0))
 
     # If not summary page, generate chart
     if not is_summary_page:
@@ -360,9 +366,9 @@ def generate_html(suite_summary, test_results_list, output_html_path,
     html_content = template.render(
         test_suite_name=test_suite_name,
         total_tests=total_tests,
-        total_PASSED=suite_summary.get("total_PASSED", 0),
-        total_FAILED=suite_summary.get("total_FAILED", 0),
-        total_FAILED_WITH_WAIVER=suite_summary.get("total_FAILED_WITH_WAIVER", 0),
+        total_passed=suite_summary.get("total_passed", 0),
+        total_failed=suite_summary.get("total_failed", 0),
+        total_failed_with_waiver=suite_summary.get("total_failed_with_waiver", 0),
         test_results_list=test_results_list,
         is_summary_page=is_summary_page,
         include_drop_down=include_drop_down,
@@ -402,9 +408,9 @@ def main():
 
     test_results_list = []
     combined_suite_summary = {
-        'total_PASSED': 0,
-        'total_FAILED': 0,
-        'total_FAILED_WITH_WAIVER': 0
+        'total_passed': 0,
+        'total_failed': 0,
+        'total_failed_with_waiver': 0
     }
 
     for input_json_file in args.input_json_files:
@@ -437,15 +443,15 @@ def main():
                         has_failed_with_waiver = True
 
                 if has_failed_without_waiver:
-                    combined_suite_summary['total_FAILED'] += 1
+                    combined_suite_summary['total_failed'] += 1
                 elif has_failed_with_waiver:
-                    combined_suite_summary['total_FAILED_WITH_WAIVER'] += 1
+                    combined_suite_summary['total_failed_with_waiver'] += 1
                 else:
-                    combined_suite_summary['total_PASSED'] += 1
+                    combined_suite_summary['total_passed'] += 1
 
-    total_standalones = (combined_suite_summary['total_PASSED'] +
-                         combined_suite_summary['total_FAILED'] +
-                         combined_suite_summary['total_FAILED_WITH_WAIVER'])
+    total_standalones = (combined_suite_summary['total_passed'] +
+                         combined_suite_summary['total_failed'] +
+                         combined_suite_summary['total_failed_with_waiver'])
     if total_standalones == 0:
         print("No valid data found in input JSON(s).")
         sys.exit(1)
