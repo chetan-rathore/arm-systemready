@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # @file
-# Copyright (c) 2021-2025, Arm Limited or its affiliates. All rights reserved.
+# Copyright (c) 2021-2026, Arm Limited or its affiliates. All rights reserved.
 # SPDX-License-Identifier : Apache-2.0
 
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -91,7 +91,6 @@ get_cross_compiler()
             exit 1
         fi
         tar -xf arm-gnu-toolchain-${GCC_TOOLS_VERSION}-x86_64-${TAG}.tar.xz
-        mv arm-gnu-toolchain-13.2.Rel1-x86_64-aarch64-none-linux-gnu arm-gnu-toolchain-13.2.rel1-x86_64-aarch64-none-linux-gnu
         rm arm-gnu-toolchain-${GCC_TOOLS_VERSION}-x86_64-${TAG}.tar.xz
         popd
     fi
@@ -136,6 +135,7 @@ get_linux-acs_src()
     pushd $TOP_DIR/linux-${LINUX_KERNEL_VERSION}
     git am $TOP_DIR/../common/patches/0001-SystemReady-Linux-${LINUX_KERNEL_VERSION}.patch
     git am $TOP_DIR/../common/patches/0001-disable-psci-checker.patch
+    git am $TOP_DIR/patches/0001-usb_host_xhci_plat.patch
 
     #apply patches to linux source
     if [ $LINUX_KERNEL_VERSION == "6.4" ]; then

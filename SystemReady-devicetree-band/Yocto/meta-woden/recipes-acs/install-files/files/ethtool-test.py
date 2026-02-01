@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2023-2025, Arm Limited or its affiliates. All rights reserved.
+# Copyright (c) 2023-2026, Arm Limited or its affiliates. All rights reserved.
 # SPDX-License-Identifier : Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -66,8 +66,33 @@ TEST_ORDER = [
     "Ping ipv6.google.com (IPv6)"
 ]
 
-# Parsing the summary 
+# Parsing the summary
 results = {}
+
+SYSTEM_CONFIG_PATH = None
+# Get the ethtool compliant interface value from system_config.txt
+def get_required_compliant_ifaces():
+    try:
+        cfg = Path(SYSTEM_CONFIG_PATH)
+        text = cfg.read_text()
+    except Exception:
+        return 0
+
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or stripped.startswith("//"):
+            continue
+
+        if "total_number_of_network_controllers" in stripped.lower():
+            m = re.search(r"(=|:)\s*(-?\d+)", stripped)
+            if m:
+                try:
+                    val = int(m.group(2))
+                    return max(0, val)
+                except ValueError:
+                    pass
+
+    return 0
 
 def init_iface_results(iface):
     od = OrderedDict()
@@ -167,34 +192,106 @@ def print_summary():
             if dv:
                 line += f"  ({dv})"
             print(line)
+
     def iface_has_failures(iface):
-        # Any test with explicit FAILED makes the iface non-compliant.
         return any(entry.get("status") == FAILED for entry in results.get(iface, {}).values())
 
     def is_virtual_bringup(iface):
         br = results.get(iface, {}).get("Bring up", {})
         return br.get("status") == SKIPPED and "Virtual interface" in br.get("detail", "")
 
+    def link_detected_status(iface):
+        return results.get(iface, {}).get("Link detected", {}).get("status", SKIPPED)
+
+    # Compliance summary
     compliant_ifaces = []
+    non_compliant_ifaces = []
+
     for iface in results:
         if is_virtual_bringup(iface):
             continue
-        if not iface_has_failures(iface):
+
+        ld_status = link_detected_status(iface)
+
+        if ld_status != PASSED:
+            non_compliant_ifaces.append(iface)
+            continue
+
+        if iface_has_failures(iface):
+            non_compliant_ifaces.append(iface)
+        else:
             compliant_ifaces.append(iface)
 
-    if compliant_ifaces:
-        green = "\033[92m"
-        reset = "\033[0m"
-        names = ", ".join(compliant_ifaces)
-        print(f"\nStatus - {green}Compliant ({compliant_ifaces[0]}){reset}\n")
+    green = "\033[92m"
+    red   = "\033[91m"
+    reset = "\033[0m"
+
+    def join_names(names):
+        return ", ".join(names) if names else "None"
+
+    required = get_required_compliant_ifaces()
+
+    # total testable interfaces excluding virtual
+    total_testable = len(compliant_ifaces) + len(non_compliant_ifaces)
+
+    # if required is 0 or the config line is commented
+    if required == 0:
+        if non_compliant_ifaces:
+            print(
+                f"\nEthtool Compliance : {red}FAILED{reset} "
+                f"(The interfaces {join_names(non_compliant_ifaces)} failed the tests)\n"
+            )
+        else:
+            if compliant_ifaces:
+                print(
+                    f"\nEthtool Compliance : {green}PASSED{reset} "
+                    f"(Passed interface(s) {join_names(compliant_ifaces)})\n"
+                )
+            else:
+                print(
+                    f"\nEthtool Compliance : {red}FAILED{reset} "
+                    f"(No testable interfaces)\n"
+                )
+        return
+
+    # if ethtool_compliant_interfaces has a value
+    if total_testable == 0:
+        print(
+            f"\nEthtool Compliance : {red}FAILED{reset} "
+            f"(No testable interfaces; required compliant interfaces = {required})\n"
+        )
+        return
+
+    if len(compliant_ifaces) >= required:
+        extra_msgs = []
+        if non_compliant_ifaces:
+            extra_msgs.append(
+                f"{len(non_compliant_ifaces)} interface(s) failed: {join_names(non_compliant_ifaces)}"
+            )
+        extra = f"; {'; '.join(extra_msgs)}" if extra_msgs else ""
+        print(
+            f"\nEthtool Compliance : {green}PASSED{reset} "
+            f"(Required compliant interfaces = {required}; "
+            f"passed: {join_names(compliant_ifaces)}{extra})\n"
+        )
     else:
-        red = "\033[91m"
-        reset = "\033[0m"
-        print(f"\nStatus - {red}Non-compliant{reset}\n")
+        # FAIL if not enough compliant interfaces
+        detail = (
+            f"Required compliant interfaces = {required}, "
+            f"but only {len(compliant_ifaces)} passed"
+        )
+        if compliant_ifaces:
+            detail += f": {join_names(compliant_ifaces)}"
+        if non_compliant_ifaces:
+            detail += f"; failed: {join_names(non_compliant_ifaces)}"
+        print(
+            f"\nEthtool Compliance : {red}FAILED{reset} "
+            f"({detail})\n"
+        )
 
 original_states = {}
 
-#To check if a tool is from BusyBox 
+#To check if a tool is from BusyBox
 def is_busybox_tool(tool_name):
     tool_path = shutil.which(tool_name)
     if not tool_path:
@@ -280,6 +377,9 @@ signal.signal(signal.SIGTERM, lambda sig, frame: (print_summary(), cleanup(), sy
 
 if __name__ == "__main__":
     try:
+        if len(sys.argv) > 1:
+            SYSTEM_CONFIG_PATH = sys.argv[1]
+
         have_ethtool = shutil.which("ethtool") is not None
         busybox_env = shutil.which("udhcpc") is not None
         # Discovering ethernet interfaces
@@ -332,6 +432,7 @@ if __name__ == "__main__":
                 print_color(f"Unable to bring down ethernet interface {intrf} using ip, Exiting ...", "WARN")
 
         print("\n****************************************************************\n")
+        time.sleep(20)
         previous_eth_intrf = ""
 
         for intrf in physical_ifaces:
@@ -402,7 +503,7 @@ if __name__ == "__main__":
                     set_result(intrf, "Link detected", PASSED)
                 else:
                     print_color(f"Link not detected for {intrf}", "WARN")
-                    set_result(intrf, "Link detected", WARNING, "No carrier")
+                    set_result(intrf, "Link detected", FAILED, "No carrier")
                     # Skip everything else that needs a link
                     skip_many(intrf, [
                         "Gateway Address present",
@@ -430,7 +531,7 @@ if __name__ == "__main__":
                         oper = "down"
                     if oper != "up":
                         print_color(f"Link not detected for {intrf} (carrier={carrier}, operstate={oper})", "WARN")
-                        set_result(intrf, "Link detected", WARNING, f"carrier={carrier}, operstate={oper}")
+                        set_result(intrf, "Link detected", FAILED, f"carrier={carrier}, operstate={oper}")
                         skip_many(intrf, [
                             "Gateway Address present",
                             "Ping gateway (IPv4)",
@@ -581,7 +682,7 @@ if __name__ == "__main__":
             print(rping.stdout)
             if rping.returncode != 0 or "100% packet loss" in rping.stdout:
                 print_color(f"Failed to ping router/gateway[{ip_address}] for {intrf}", "WARN")
-                set_result(intrf, "Ping gateway (IPv4)", FAILED, "Packet loss or ping failed")
+                set_result(intrf, "Ping gateway (IPv4)", WARNING, "Packet loss or ping failed")
             else:
                 print_color(f"Ping to router/gateway[{ip_address}] for {intrf} is successful", "CHECK")
                 set_result(intrf, "Ping gateway (IPv4)", PASSED)
@@ -595,7 +696,7 @@ if __name__ == "__main__":
                 print_color(f"Unable to resolve www.arm.com, DNS not configured correctly for {intrf}", "WARN")
             if rp2.returncode != 0 or "100% packet loss" in rp2.stdout:
                 print_color(f"Failed to ping www.arm.com via {intrf}", "WARN")
-                set_result(intrf, "Ping www.arm.com (IPv4)", FAILED, "Ping failed or DNS issue")
+                set_result(intrf, "Ping www.arm.com (IPv4)", WARNING, "Ping failed or DNS issue")
             else:
                 print_color(f"Ping to www.arm.com is successful", "CHECK")
                 set_result(intrf, "Ping www.arm.com (IPv4)", PASSED)
@@ -662,6 +763,7 @@ if __name__ == "__main__":
 
         # Restore all original interface states and print summary
         print_summary()
+        print("\033[91mPlease update 'system_config.txt' with the correct value for total_number_of_network_controllers\033[0m")
         cleanup()
         sys.exit(0)
 

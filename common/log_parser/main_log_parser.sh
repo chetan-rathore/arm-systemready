@@ -318,7 +318,7 @@ fi
 ################################################################################
 # PFDI PARSING
 ################################################################################
-if [ $YOCTO_FLAG_PRESENT -eq 1 ]; then 
+if [ $YOCTO_FLAG_PRESENT -eq 1 ]; then
     PFDI_LOG="$LOGS_PATH/uefi/pfdiresults.log"   # adjust if your log lives elsewhere
     PFDI_JSON="$JSONS_DIR/pfdi.json"
     PFDI_PROCESSED=0
@@ -514,6 +514,41 @@ if [ $YOCTO_FLAG_PRESENT -eq 1 ]; then
         else
             # Important: add PSCI JSON to the same array that we pass to json_to_html!
             Standalone_JSONS+=("$PSCI_JSON")
+        fi
+    fi
+
+    # 7) SMBIOS CHECK (strict parser like PSCI)
+    SMBIOS_LOG="$LOGS_PATH/sct_results/Overall/Summary.log"
+    SMBIOS_JSON="$JSONS_DIR/smbios_check.json"
+
+    if check_file "$SMBIOS_LOG" "M"; then
+        # Use correct full path to standalone SMBIOS parser
+        python3 "$SCRIPTS_PATH/standalone_tests/logs_to_json.py" \
+            "$SMBIOS_LOG" \
+            "$SMBIOS_JSON"
+        # If parser succeeded, include in Standalone reports
+        if [ $? -eq 0 ]; then
+            apply_waivers "Standalone" "$SMBIOS_JSON"
+            Standalone_JSONS+=("$SMBIOS_JSON")
+        else
+            echo -e "${RED}ERROR: SMBIOS log parsing to json failed.${NC}"
+        fi
+    else
+        echo -e "${YELLOW}WARNING: SMBIOS log not found: $SMBIOS_LOG${NC}"
+    fi
+
+    # 8) NETWORK BOOT CHECK
+    NETWORK_BOOT_LOG="$LOGS_PATH/network_boot/network_boot_results.log"
+    NETWORK_BOOT_JSON="$JSONS_DIR/network_boot.json"
+    if check_file "$NETWORK_BOOT_LOG" "M"; then
+        python3 "$SCRIPTS_PATH/standalone_tests/logs_to_json.py" \
+            "$NETWORK_BOOT_LOG" \
+            "$NETWORK_BOOT_JSON"
+        if [ $? -eq 0 ]; then
+            apply_waivers "Standalone" "$NETWORK_BOOT_JSON"
+            Standalone_JSONS+=("$NETWORK_BOOT_JSON")
+        else
+            echo -e "${RED}ERROR: Network boot log parsing to json failed.${NC}"
         fi
     fi
 

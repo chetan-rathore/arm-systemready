@@ -1,7 +1,6 @@
 # SystemReady-devicetree band ACS
 
 ## Table of Contents
-
 - [Introduction](#introduction)
 - [Latest Release details](#latest-release-details)
 - [Prebuilt Images](#prebuilt-images)
@@ -15,6 +14,7 @@
 - [Verification on Open-Source FVP](#verification-on-open-source-fvp)
   - [Software stack and Model](#software-stack-and-model)
   - [Model run command](#model-run-command)
+- [Current Limitations](#current-limitations)
 - [Security Implication](#security-implication)
 - [License](#license)
 - [Feedback, contributions, and support](#feedback-contributions-and-support)
@@ -27,44 +27,56 @@ SystemReady-devicetree band compliant platforms implement a minimum set of hardw
 The SystemReady-devicetree band compliance and testing requirements are specified in the [Arm SystemReady Requirements Specification (SRS)](https://developer.arm.com/documentation/den0109/latest)
 
 ## Latest Release details
- - Release version: v3.1.0
+ - Release version: v3.1.1
  - Quality: EAC
- - **The latest pre-built release of SystemReady-devicetree band ACS is available for download here: [v25.10_3.1.0](prebuilt_images/v25.10_3.1.0)**
+ - The latest pre-built release of SystemReady-devicetree band ACS is available for download here: [v25.12_3.1.1](prebuilt_images/v25.12_3.1.1)
  - The compliance suite is not a substitute for design verification.
  - To review the ACS logs, Arm licensees can contact Arm directly through their partner managers.
- - SystemReady-devicetree-band Image Test Suite details
+
+> **SystemReady-devicetree-band Image details**
+
+ - Test Suite details
 
 | Test Suite                                                                                   | Test Suite Tag/Commit                                        | Specification Version |
 |----------------------------------------------------------------------------------------------|--------------------------------------------------------------|-----------------------|
-| [Base System Architecture (BSA)](https://github.com/ARM-software/sysarch-acs)                | v25.10_BSA_1.1.2                                             | BSA v1.1              |
-| [Base Boot Requirements (BBR)](https://github.com/ARM-software/bbr-acs)                      | af2e92c7e92693bdd0a60c81e258936e8f1f02c6                     | EBBR v2.2             |
-| [Base Boot Security Requirements (BBSR)](https://github.com/ARM-software/bbr-acs)            | af2e92c7e92693bdd0a60c81e258936e8f1f02c6                     | BBSR v1.3             |
-| [UEFI Self Certification Tests (UEFI-SCT)](https://github.com/tianocore/edk2-test)           | 0e2ced3befa431bb1aebff005c4c4f1a9edfe6b4                     |                       |
-| [Firmware Test Suite (FWTS)](http://kernel.ubuntu.com/git/hwe/fwts.git)                      | v25.01.00                                                    |                       |
-| [Platform Fault Detection Interface (PFDI)](https://github.com/ARM-software/sysarch-acs)     | v25.09_PFDI_0.8.0                                            | PFDI v1.0-BETA        |
+| [Base System Architecture (BSA)](https://github.com/ARM-software/sysarch-acs)                | 13248b722e9ca63522a475771e085b0a8d6d1e9d                     | BSA v1.2              |
+| [Base Boot Requirements (BBR)](https://github.com/ARM-software/bbr-acs)                      | v25.12_EBBR_2.2.2                                            | EBBR v2.2, BBR v2.1   |
+| [Base Boot Security Requirements (BBSR)](https://github.com/ARM-software/bbr-acs)            | v25.12_BBSR_1.3.1                                            | BBSR v1.3             |
+| [UEFI Self Certification Tests (UEFI-SCT)](https://github.com/tianocore/edk2-test)           | edk2-test-stable202509                                       |                       |
+| [Firmware Test Suite (FWTS)](http://kernel.ubuntu.com/git/hwe/fwts.git)                      | v25.09.00                                                    |                       |
+| [Platform Fault Detection Interface (PFDI)](https://github.com/ARM-software/sysarch-acs)     | 13248b722e9ca63522a475771e085b0a8d6d1e9d                     | PFDI v1.0-BETA        |
 
-## Prebuilt images
+- Component details
+
+| Component                                                                   | Version           |
+|-----------------------------------------------------------------------------|-------------------|
+| [Linux Kernel](https://git.yoctoproject.org/linux-yocto/)                   | v6.16             |
+| [EDK2](https://github.com/tianocore/edk2.git)                               | edk2-stable202508 |
+| [DT bindings source](https://cdn.kernel.org/pub/linux/kernel/v6.x/)         | v6.18             |
+
+
+### Prebuilt images
 - Prebuilt images for each release are available in the prebuilt_images folder.To access the prebuilt_images, click : [prebuilt_images](prebuilt_images/)
 - The prebuilt images are archived after compression to the .xz format. On Linux, use the xz utility to uncompress the image <br />
   `xz -d systemready-dt_acs_live_image.wic.xz`. <br />
    On Windows, use the 7zip or a similar utility.
 - If you choose to use the prebuilt image, skip the build steps, and navigate to the "Verification" section below.
   
-## Steps to Manually Build Image
+### Steps to Manually Build Image
 
-### Prerequisites
+#### Prerequisites
 Before starting the ACS build, ensure that the following requirements are met:
- - Ubuntu 20.04 or later LTS with at least 32GB of free disk space.
+ - Ubuntu 20.04 or later LTS with at least 16 GB of RAM and 150 GB of secondary storage.
  - Use bash shell.
  - You must have **sudo** privilege to install tools required for build.
  - Install `git` using `sudo apt install git`
  - `git config --global user.name "Your Name"` and `git config --global user.email "Your Email"` must be configured.
 
-### Code download
+#### Code download
 - To build a release version of the code, checkout the main branch with the appropriate release [tag](https://github.com/ARM-software/arm-systemready/tags).
 - To build the latest version of the code with bug fixes and new features, use the main branch.
 
-### Build Steps
+#### Build Steps
 1. Clone the arm-systemready repository <br />
  `git clone "https://github.com/ARM-software/arm-systemready.git"`
 
@@ -82,7 +94,7 @@ Before starting the ACS build, ensure that the following requirements are met:
 
 Note: The image is generated in a compressed (.xz) format. The image must be uncompressed before it is used.<br />
 
-### Build output
+#### Build output
 This image comprises of 2 FAT file system partition recognized by UEFI: <br />
 - '/' <br />
   Root partition for Linux which contains test-suites to run in Linux environment. <br/>
@@ -92,6 +104,9 @@ This image comprises of 2 FAT file system partition recognized by UEFI: <br />
   contains an 'acs_results_template' directory which stores logs of the automated execution of ACS.
 
 ## Image Directory Structure
+
+> **The directory structure corresponds to latest release image**
+
 ```
 ├── EFI
 │   └── BOOT
@@ -104,6 +119,8 @@ This image comprises of 2 FAT file system partition recognized by UEFI: <br />
 │   ├── app
 │   │   ├── capsule_update.nsh
 │   │   ├── CapsuleApp.efi
+│   │   ├── https_boot.nsh
+│   │   ├── ledge.efi
 │   │   └── UpdateVars.efi
 │   ├── bbr
 │   │   ├── SCT
@@ -128,7 +145,7 @@ This image comprises of 2 FAT file system partition recognized by UEFI: <br />
 │   │   ├── pfdi.efi
 │   │   ├── pfdi.nsh
 │   ├── config
-│   │   ├── acs_config_dt.txt
+│   │   ├── acs_config.txt
 │   │   └── system_config.txt
 │   └── debug
 │       ├── debug_dump.nsh
@@ -184,7 +201,6 @@ This image comprises of 2 FAT file system partition recognized by UEFI: <br />
  │ Linux Boot                                    │
  │*bbr/bsa                                       │
  │ BBSR Compliance (Automation)                  │
-
 ```
  - **Linux Boot** : This option will boot the ACS Linux kernel and run the default Linux tool (linux debug dump, fwts, linux bsa, linux sbsa (if selected))
    - noacs command line parameter: Edit the Linux Boot grub menu option and add **noacs** at the end of Linux Boot grub menu option, to boot into ACS Linux kernel without running the default Linux test suites.
@@ -195,7 +211,7 @@ This image comprises of 2 FAT file system partition recognized by UEFI: <br />
  - **BBSR Compliance (Automation)** : This option will run the SCT and FWTS tests required for BBSR compliance, perform a Linux secure boot, and, if a TPM is present, evaluate the measured boot log. For the verification steps of BBSR ACS, refer to the [BBSR ACS Verification](../docs/BBSR_ACS_Verification.md).
 
 ### ACS configs file
-- **acs_config_dt.txt**: The file specifies the ARM specification version that the ACS tool suite complies with, and this information is included in the **System_Information** table of the **ACS_Summary.html** report.
+- **acs_config.txt**: The file specifies the ARM specification version that the ACS tool suite complies with, and this information is included in the **System_Information** table of the **ACS_Summary.html** report.
 
 - **system_config.txt**: The file is used to collect below system information which is required for **ACS_Summary.html** report, this needs to be manually filled by user.
    - FW source code: Unknown
@@ -203,6 +219,8 @@ This image comprises of 2 FAT file system partition recognized by UEFI: <br />
    - product website: Unknown
    - Tested operated Systems: Unknown
    - Testlab assistance: Unknown
+   - Total_number_of_network_controllers       # Using this flag partner can control how many N/W controller complaince needs to be checked, default all detected interfaces needs to be compliant.
+   - HTTPS_BOOT_IMAGE_URL          # This flag needs be uncommented and filled with correct URL where the network boot image is hosted for complete verification of https network boot flow.
 
 ### Log Parser scripts
 - The scripts will parse the results generated by various test suite tools and consolidate them into JSON files. These JSON files will adhere to a standard format, maintaining a consistent structure for all test suites
@@ -216,13 +234,10 @@ This image comprises of 2 FAT file system partition recognized by UEFI: <br />
 - Template of waiver.json can be found [here](https://github.com/ARM-software/arm-systemready/blob/main/docs/example_waiver.json)
 
 ## Verification on Open-Source FVP
-
 Note: The default UEFI EDK2 setting for "Console Preference" is "Graphical". In this default setting, the Linux output goes only to the graphical console (HDMI monitor). To force serial console output, you may change "Console Preference" to "Serial".
 
 ### Software stack and Model
-
 The U-Boot firmware and QEMU can be built with [Buildroot](https://buildroot.org/).
-
 To download and build the firmware code, do the following:
 
 ```
@@ -232,17 +247,13 @@ make qemu_aarch64_ebbr_defconfig
 make
 ```
 
-When the build completes, it generates the firmware file <br />
-`output/images/flash.bin`, comprising TF-A, OP-TEE and the U-Boot bootloader. <br /> 
+When the build completes, it generates the firmware file `output/images/flash.bin`, comprising TF-A, OP-TEE and the U-Boot bootloader.
 A QEMU executable is also generated at `output/host/bin/qemu-system-aarch64`.
 
-Specific information for this Buildroot configuration is available in the file <br />
-`board/qemu/aarch64-ebbr/readme.txt`.
-
-More information on Buildroot is available in [The Buildroot user manual](https://buildroot.org/downloads/manual/manual.html).
+Specific information for this Buildroot configuration is available in the file `board/qemu/aarch64-ebbr/readme.txt`.
+More information on Buildroot is available in [The Buildroot user manual](http://buildroot.org/downloads/manual/manual.html).
 
 ### Model run command
-
 Launch the model using the following command: <br />
 
 ```
@@ -274,7 +285,6 @@ Launch the model using the following command: <br />
 ### Enabling Initcall debug prints in SystemReady-devicetree band Yocto Linux boot
 
 Enabling initcall debug prints allows the kernel to print traces of initcall functions. This feature is not enabled by default, but manually booting Linux with initcall_debug can assist users in debugging kernel issues.
-
 Edit the "Linux boot" boot option by pressing `e` in grub window and append the boot command with following command line options.
 
 ```
@@ -283,6 +293,14 @@ initcall_debug ignore_loglevel=1
 
 Press Ctrl+x to boot the Yocto linux with initcall debug prints enabled.
 
+## Current Limitations
+
+### BSA
+Validating the compliance of certain PCIe rules defined in the BSA specification require the PCIe end-point generate specific stimulus during the runtime of the test. Examples of such stimulus are  P2P, PASID, ATC, etc. The tests that requires these stimuli are grouped together in the exerciser module. The exerciser layer is an abstraction layer that enables the integration of hardware capable of generating such stimuli to the test framework.
+The details of the hardware or Verification IP which enable these exerciser tests platform specific and are beyond the scope of this document.
+
+The ACS image does not allow customizations, hence, the exerciser module is not included in the ACS image. To enable exerciser tests for greater coverage of PCIe rules, please refer to [BSA](https://github.com/ARM-software/bsa-acs) Or contact your Arm representative for details.
+
 ## Security Implication
 Arm SystemReady-devicetree band ACS test suite may run at higher privilege level. An attacker may utilize these tests as a means to elevate privilege which can potentially reveal the platform security assets. To prevent the leakage of Secure information, it is strongly recommended that the ACS test suite is run only on development platforms. If it is run on production systems, the system should be scrubbed after running the test suite.
 
@@ -290,7 +308,6 @@ Arm SystemReady-devicetree band ACS test suite may run at higher privilege level
 System Ready ACS is distributed under Apache v2.0 License.
 
 ## Feedback, contributions, and support
-
  - For feedback, use the GitHub Issue Tracker that is associated with this repository.
  - For support, send an email to "support-systemready-acs@arm.com" with details.
  - Arm licensees can contact Arm directly through their partner managers.
@@ -299,4 +316,3 @@ System Ready ACS is distributed under Apache v2.0 License.
 --------------
 
 *Copyright (c) 2022-2025, Arm Limited and Contributors. All rights reserved.*
-

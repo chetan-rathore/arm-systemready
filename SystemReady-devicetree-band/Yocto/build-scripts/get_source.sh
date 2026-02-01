@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # @file
-# Copyright (c) 2021-2025, Arm Limited or its affiliates. All rights reserved.
+# Copyright (c) 2021-2026, Arm Limited or its affiliates. All rights reserved.
 # SPDX-License-Identifier : Apache-2.0
 
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,6 +27,7 @@ popd
 echo "Getting the sources for $BAND "
 
 . $TOP_DIR/../../common/config/systemready-dt-band-source.cfg
+SYSTEMREADY_COMMIT_LOG=${TOP_DIR}/meta-woden/recipes-acs/bootfs-files/files/systemready-commit.log
 
 
 export GIT_SSL_NO_VERIFY=1
@@ -103,7 +104,7 @@ copy_recipes()
 
     if [ ! -z "$EDK2_LIBC_SRC_TAG" ]; then
         sed -i -E 's/SRCREV_edk2-libc\s+=\s+"\$\{AUTOREV\}"/SRCREV_edk2-libc = \"'${EDK2_LIBC_SRC_TAG}'"/g' $TOP_DIR/meta-woden/recipes-acs/bsa-acs-uefi/bsa-acs.bb
-        sed -i -E 's/SRCREV_edk2-libc\s+=\s+"\$\{AUTOREV\}"/SRCREV_edk2-libc = \"'${EDK2_LIBC_SRC_TAG}'"/g' $TOP_DIR/meta-woden/recipes-acs/pfdi/pfdi.bb
+        sed -i -E 's/SRCREV_edk2-libc\s+=\s+"\$\{AUTOREV\}"/SRCREV_edk2-libc = \"'${EDK2_LIBC_SRC_TAG}'"/g' $TOP_DIR/meta-woden/recipes-acs/pfdi-acs/pfdi-acs.bb
     fi
 
     if [ ! -z "$SCT_SRC_TAG" ]; then
@@ -122,13 +123,13 @@ copy_recipes()
         sed -i -E 's/SRCREV_systemready-scripts\s+=\s+"\$\{AUTOREV\}"/SRCREV_systemready-scripts = \"'${SYSTEMREADY_SCRIPTS_TAG}'"/g' $TOP_DIR/meta-woden/recipes-acs/systemready-scripts/systemready-scripts.bb
     fi
 
-    if [ ! -z "$PFDI_ACS_TAG" ];then
-        sed -i -E 's/SRCREV_sysarch-acs\s+=\s+"\$\{AUTOREV\}"/SRCREV_sysarch-acs = \"'${PFDI_ACS_TAG}'"/g' $TOP_DIR/meta-woden/recipes-acs/pfdi/pfdi.bb
+    if [ ! -z "$LEDGE_EFI_TAG" ]; then
+        sed -i -E 's/SRCREV\s+=\s+"\$\{AUTOREV\}"/SRCREV = \"'${LEDGE_EFI_TAG}'"/g' $TOP_DIR/meta-woden/recipes-acs/ledge-efi/ledge-efi_git.bb
     fi
 
-    # create a bsa-acs patches directory in meta-woden/recipes-acs/bsa-acs-uefi and copy requires BSA patches
-    mkdir $TOP_DIR/meta-woden/recipes-acs/bsa-acs-uefi/bsa-acs
-    cp $TOP_DIR/../patches/* $TOP_DIR/meta-woden/recipes-acs/bsa-acs-uefi/bsa-acs/.
+    if [ ! -z "$PFDI_ACS_TAG" ];then
+        sed -i -E 's/SRCREV_sysarch-acs\s+=\s+"\$\{AUTOREV\}"/SRCREV_sysarch-acs = \"'${PFDI_ACS_TAG}'"/g' $TOP_DIR/meta-woden/recipes-acs/pfdi-acs/pfdi-acs.bb
+    fi
 
     # copy .nsh files to meta-woden/recipes-acs/bootfs-files/files
     COMMON_DIR_PATH=`git rev-parse --show-toplevel`"/common"
@@ -136,6 +137,10 @@ copy_recipes()
     cp $COMMON_DIR_PATH/uefi_scripts/*.nsh $TOP_DIR/meta-woden/recipes-acs/bootfs-files/files/.
     mv $TOP_DIR/meta-woden/recipes-acs/bootfs-files/files/startup_dt.nsh $TOP_DIR/meta-woden/recipes-acs/bootfs-files/files/startup.nsh
     cp $COMMON_DIR_PATH/config/*.txt $TOP_DIR/meta-woden/recipes-acs/bootfs-files/files/.
+
+    echo "SystemReady DT ACS" >> "$SYSTEMREADY_COMMIT_LOG"
+    echo "    URL(systemready-acs) = $(git remote get-url origin)" >> "$SYSTEMREADY_COMMIT_LOG"
+    echo "    commit(systemready-acs) = $(git rev-parse HEAD)" >> "$SYSTEMREADY_COMMIT_LOG" 
 
     pushd $TOP_DIR/meta-woden/recipes-acs/bootfs-files/files
 

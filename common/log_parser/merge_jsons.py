@@ -53,11 +53,13 @@ DT_SRS_SCOPE_TABLE = [
     ("DT_VALIDATE", "M"),
     ("READ_WRITE_CHECK_BLK_DEVICES", "M"),
     ("ETHTOOL_TEST", "M"),
+    ("NETWORK_BOOT", "R"),
     ("BSA", "R"),
     ("BBSR-SCT", "EM"),
     ("BBSR-TPM", "EM"),
     ("BBSR-FWTS", "EM"),
     ("DT_KSELFTEST", "R"),
+    ("SMBIOS", "R"),
     ("PSCI", "R"),
     ("POST_SCRIPT", "R"),
     ("OS_TEST", "M"),
@@ -92,7 +94,7 @@ def compliance_label(suite_name: str) -> str:
     else:
         tag = "Recommended"
     # Match the console ordering: “Suite: <tag>  : <suite> …”
-    return f"Suite_Name: {suite_name}  : {tag}_compliance"
+    return f"Suite_Name: {tag}  : {suite_name}_compliance"
 
 
 def reformat_json(json_file_path):
@@ -134,6 +136,25 @@ def count_fails_in_json(data):
         return (0, 0)
 
     for suite_entry in test_results:
+        # For BSA/SBSA: also count testcase-level failures
+        for testcase in suite_entry.get("testcases", []):
+            test_result = testcase.get("Test_result", "")
+            if isinstance(test_result, str):
+                if "FAILED" in test_result.upper() or "FAILURE" in test_result.upper() or "FAIL" in test_result.upper():
+                    any_subtests_found = True
+                    if "(WITH WAIVER)" in test_result.upper():
+                        total_failed_with_waiver += 1
+                    else:
+                        total_failed += 1
+
+            # Also count subtests under testcases (BSA structure)
+            subtests_in_testcase = testcase.get("subtests", [])
+            # Only set flag if subtests array is non-empty
+            if subtests_in_testcase:
+                any_subtests_found = True
+            # NOTE: For BSA, don't count individual subtest failures
+            # The testcase failure status above already captures it
+        # Standard structure: subtests at suite level
         subtests = suite_entry.get("subtests", [])
         if subtests:
             any_subtests_found = True
@@ -367,6 +388,12 @@ def merge_json_files(json_files, output_file):
         elif "READ_WRITE_CHECK_BLK_DEVICES" in fn:
             section_name = "Suite_Name: Read Write Check Block Devices"
             suite_key    = "READ_WRITE_CHECK_BLK_DEVICES"
+        elif "NETWORK_BOOT" in fn or "network_boot" in fn.lower():
+            section_name = "Suite_Name: Network boot"
+            suite_key    = "NETWORK_BOOT"
+        elif "SMBIOS" in fn:
+            section_name = "Suite_Name: SMBIOS"
+            suite_key    = "SMBIOS"
         elif "PSCI" in fn:
             section_name = "Suite_Name: PSCI"
             suite_key    = "PSCI"
@@ -401,7 +428,7 @@ def merge_json_files(json_files, output_file):
         lookup_suite_key = suite_key.lower()
         standalone_aliases = {
             "dt_kselftest", "dt_validate", "ethtool_test",
-            "read_write_check_blk_devices", "psci", "capsule update"
+            "read_write_check_blk_devices", "psci", "capsule update", "network_boot", "smbios"
         }
         if lookup_suite_key in standalone_aliases or lookup_suite_key.startswith("os_"):
             lookup_suite_key = "standalone"
@@ -486,8 +513,11 @@ def merge_json_files(json_files, output_file):
 
     overall_comp = "Compliant"
     # Keep track of missing_suites and non_waived_suites for parentheses
-    missing_list = []
-    non_waived_list = []
+    # Separate tracking for mandatory and recommended
+    mandatory_missing_list = []
+    mandatory_non_waived_list = []
+    recommended_missing_list = []
+    recommended_non_waived_list = []
 
     if acs_info_data and isinstance(acs_info_data, dict):
         acs_results_summary = acs_info_data.get("ACS Results Summary", {})
@@ -501,26 +531,27 @@ def merge_json_files(json_files, output_file):
                 acs_results_summary[label] = "Not Compliant: not run"
                 print(f"{RED}Suite: Mandatory  : {suite_name}: {acs_results_summary[label]}{RESET}")
                 overall_comp = "Not Compliant"
-                missing_list.append(suite_name)
+                mandatory_missing_list.append(suite_name)
             elif requirement == "CM":
                 acs_results_summary[label] = "Not Run"
                 print(f"Suite: Conditional-Mandatory  : {suite_name}: {acs_results_summary[label]}")
                 #overall_comp = "Not Compliant"
-                #missing_list.append(suite_name)
+                #mandatory_missing_list.append(suite_name)
             elif requirement == "EM":
                 acs_results_summary[label] = "Not Run"
                 print(f"Suite: Extension  : {suite_name}: {acs_results_summary[label]}")
                 #overall_comp = "Not Compliant"
-                #missing_list.append(suite_name)
+                #mandatory_missing_list.append(suite_name)
             else:
                 if DT_OR_SR_MODE == "DT":
                     acs_results_summary[label] = "Not Compliant: not run"
                     print(f"{RED}Suite: Recommended: {suite_name}: {acs_results_summary[label]}{RESET}")
                     overall_comp = "Not Compliant"
-                    missing_list.append(suite_name)
+                    recommended_missing_list.append(suite_name)
                 else:
                     acs_results_summary[label] = "Not Run"
                     print(f"Suite: Recommended: {suite_name}: {acs_results_summary[label]}")
+                    recommended_missing_list.append(suite_name)
         else:
             fail_info = suite_fail_data.get(suite_name)
             f = fail_info.get("Failed", 0)
@@ -558,11 +589,12 @@ def merge_json_files(json_files, output_file):
                     else:
                         print(f"{RED}Suite: Conditional-Mandatory  : {suite_name}: {acs_results_summary[label]}{RESET}")
                     overall_comp="Not Compliant"
-                    non_waived_list.append(suite_name)
+                    mandatory_non_waived_list.append(suite_name)
                 elif requirement == "EM":
                     print(f"Suite: Extension  : {suite_name}: {acs_results_summary[label]}")
                 else:
                     print(f"Suite: Recommended: {suite_name}: {acs_results_summary[label]}")
+                    recommended_non_waived_list.append(suite_name)
 
     #Ensure suite-wise compliance lines for *all* discovered suites (including recommended)
     for skey, info in suite_fail_data.items():
@@ -581,12 +613,29 @@ def merge_json_files(json_files, output_file):
     # Step 4) Overall compliance
     if overall_comp == "Not Compliant":
         reason_parts = []
-        if missing_list:
-            reason_parts.append(f"missing suite(s): {', '.join(missing_list)}")
-        if non_waived_list:
-            reason_parts.append(f"failures in suite(s): {', '.join(non_waived_list)}")
+
+        # Build Mandatory part
+        mandatory_parts = []
+        if mandatory_missing_list:
+            mandatory_parts.append(f"not run: {', '.join(mandatory_missing_list)}")
+        if mandatory_non_waived_list:
+            mandatory_parts.append(f"failed: {', '.join(mandatory_non_waived_list)}")
+
+        if mandatory_parts:
+            reason_parts.append(f"Mandatory - ({'; '.join(mandatory_parts)})")
+
+        # Build Recommended part
+        recommended_parts = []
+        if recommended_missing_list:
+            recommended_parts.append(f"not run: {', '.join(recommended_missing_list)}")
+        if recommended_non_waived_list:
+            recommended_parts.append(f"failed: {', '.join(recommended_non_waived_list)}")
+
+        if recommended_parts:
+            reason_parts.append(f"Recommended - ({'; '.join(recommended_parts)})")
+
         if reason_parts:
-            overall_comp += f" ({'; '.join(reason_parts)})"
+            overall_comp += f" : {' : '.join(reason_parts)}"
     elif overall_comp == "Compliant with waivers":
         pass
 
@@ -632,19 +681,16 @@ def merge_json_files(json_files, output_file):
             elif "waiver" in low:
                 waiver_seen = True
 
-        if non_waived_list_bbsr:
-            parts = []
+        if non_waived_list_bbsr or missing_list_bbsr:
+            bbsr_comp = "Not Compliant"
+            reason_parts = []
             if missing_list_bbsr:
-                parts.append(f"missing suite(s): {', '.join(missing_list_bbsr)}")
+                reason_parts.append(f"not run: {', '.join(missing_list_bbsr)}")
             if non_waived_list_bbsr:
-                parts.append(f"non-waived fails in suite(s): {', '.join(non_waived_list_bbsr)}")
-            acs_results_summary["BBSR compliance results"] = (
-                "Not Compliant" + (f" ({'; '.join(parts)})" if parts else "")
-            )
-        elif missing_list_bbsr:
-            acs_results_summary["BBSR compliance results"] = (
-                f"Not Compliant (missing suite(s): {', '.join(missing_list_bbsr)})"
-            )
+                reason_parts.append(f"failed: {', '.join(non_waived_list_bbsr)}")
+            if reason_parts:
+                bbsr_comp += f" : Mandatory - ({'; '.join(reason_parts)})"
+            acs_results_summary["BBSR compliance results"] = bbsr_comp
         elif waiver_seen:
             acs_results_summary["BBSR compliance results"] = "Compliant with waivers"
         else:
@@ -669,7 +715,9 @@ def merge_json_files(json_files, output_file):
         "Suite_Name: DT Validate": "Suite_Name: Standalone",
         "Suite_Name: Ethtool Test": "Suite_Name: Standalone",
         "Suite_Name: Read Write Check Block Devices": "Suite_Name: Standalone",
-        "Suite_Name: PSCI": "Suite_Name: Standalone"
+        "Suite_Name: PSCI": "Suite_Name: Standalone",
+        "Suite_Name: SMBIOS": "Suite_Name: Standalone",
+        "Suite_Name: Network boot": "Suite_Name: Standalone"
     }
 
     def _entry_to_list(entry):
@@ -688,7 +736,7 @@ def merge_json_files(json_files, output_file):
             old_data_list = _entry_to_list(merged_results.pop(old_key))
             merged_results.setdefault(new_key, [])
             merged_results[new_key].extend(old_data_list)
-    
+
     # Recursive alphabetical sorting of entire JSON
     merged_results = recursive_sort(merged_results)
 

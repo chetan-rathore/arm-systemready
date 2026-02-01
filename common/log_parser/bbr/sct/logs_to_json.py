@@ -34,6 +34,33 @@ def normalize_result(r):
         return "SKIPPED"
     return r
 
+def is_smbios_test(test_case_name):
+    """
+    Check if a test case is SMBIOS-related.
+    Matches various naming patterns like:
+    - SmbiosTable
+    - SMBIOS_*
+    - *_SMBIOS_*
+    - *SMBIOS*
+    """
+    if not test_case_name:
+        return False
+    test_lower = test_case_name.lower()
+    return "smbios" in test_lower
+
+def is_runtime_properties_table_test(subtest_description):
+    """
+    Check if a subtest is the buggy EFI Runtime Properties Table test.
+    Matches: "UEFI Compliant - EFI Runtime Properties Table RuntimeServicesSupported field matches the expected value"
+    This subtest has a known bug and should be filtered out to prevent incorrect non-compliance.
+
+    """
+    if not subtest_description:
+        return False
+    # Match the specific subtest description (case-insensitive)
+    target_test = "uefi compliant - efi runtime properties table runtimeservicessupported field matches the expected value"
+    return target_test in subtest_description.lower()
+
 # JSON mapping of Test Suites, Sub Test Suites, and Test Cases
 test_mapping = {
     "GenericTest": {
@@ -371,11 +398,11 @@ def main(input_file, output_file):
                     results.append(test_entry)
                 test_entry = {
                     "Test_suite": "",
-                    "Test_sub_suite": "",
+                    "Sub_test_suite": "",
                     "Test_case": "",
                     "Test_case_description": "",
-                    "Test_case_entry_point_guid": "",
-                    "Test_case_status_code": "",
+                    "Test Entry Point GUID": "",
+                    "Returned Status Code": "",
                     "subtests": [],
                     "test_case_summary": {
                         "total_passed": 0,
@@ -395,7 +422,7 @@ def main(input_file, output_file):
                 # Attempt to find the test suite/subsuite
                 test_suite, sub_test_suite = find_test_suite_and_subsuite(test_entry["Test_case"])
                 test_entry["Test_suite"] = test_suite if test_suite else "Unknown"
-                test_entry["Test_sub_suite"] = sub_test_suite if sub_test_suite else "Unknown"
+                test_entry["Sub_test_suite"] = sub_test_suite if sub_test_suite else "Unknown"
 
             if "Test Configuration #0" in line:
                 capture_description = True
@@ -406,10 +433,10 @@ def main(input_file, output_file):
                 capture_description = False
 
             if "Test Entry Point GUID" in line:
-                test_entry["Test_case_entry_point_guid"] = line.split(':', 1)[1].strip()
+                test_entry["Test Entry Point GUID"] = line.split(':', 1)[1].strip()
 
             if "Returned Status Code" in line:
-                test_entry["Test_case_status_code"] = line.split(':', 1)[1].strip()
+                test_entry["Returned Status Code"] = line.split(':', 1)[1].strip()
                 # Attempt to parse next lines for "XYZ: [RESULT]"
                 j = i + 1
                 while j < len(lines):
@@ -419,8 +446,8 @@ def main(input_file, output_file):
                         continue
                     m = re.search(r'^([^:]+):\s*\[(.*?)\]', candidate)
                     if m:
-                        test_entry["Test_case_result"] = normalize_result(m.group(2))
-                        test_entry["Test_case_result_reason"] = ""
+                        test_entry["test_result"] = normalize_result(m.group(2))
+                        test_entry["reason"] = ""
                     break
 
             # Sub-test detection from lines like "FooTest -- PASS"
@@ -430,7 +457,10 @@ def main(input_file, output_file):
                 result_str = normalize_result(parts[1])
 
                 # Tally in test_case_summary *before* overrides
-                if "PASS" in result_str:
+                # Check WARNING first to catch "PASS WITH WARNING" etc.
+                if "WARNING" in result_str:
+                    test_entry["test_case_summary"]["total_warnings"] += 1
+                elif "PASS" in result_str:
                     test_entry["test_case_summary"]["total_passed"] += 1
                 elif "FAIL" in result_str:
                     test_entry["test_case_summary"]["total_failed"] += 1
@@ -438,20 +468,20 @@ def main(input_file, output_file):
                     test_entry["test_case_summary"]["total_aborted"] += 1
                 elif "SKIPPED" in result_str:
                     test_entry["test_case_summary"]["total_skipped"] += 1
-                elif "WARNING" in result_str:
-                    test_entry["test_case_summary"]["total_warnings"] += 1
-                # "NOT SUPPORTED" etc. is not specially counted, you can add if needed.
+                elif "NOT SUPPORTED" not in result_str:
+                    # Count everything else except NOT SUPPORTED as ignored
+                    test_entry["test_case_summary"]["total_ignored"] += 1
 
                 test_guid = lines[i+1].strip() if i+1 < len(lines) else ""
                 file_path = lines[i+2].strip() if i+2 < len(lines) else ""
 
                 sub_test_number += 1
 
-                sub_reason = ""
+                reason = ""
                 if ":" in file_path:
                     reason_split = file_path.rsplit(":", 1)
                     if len(reason_split) > 1:
-                        sub_reason = reason_split[1].strip()
+                        reason = reason_split[1].strip()
 
                 sub_test = {
                     "sub_Test_Number": str(sub_test_number),
@@ -459,13 +489,24 @@ def main(input_file, output_file):
                     "sub_Test_GUID": test_guid,
                     "sub_test_result": result_str,
                     "sub_Test_Path": file_path,
-                    "sub_test_result_reason": sub_reason
+                    "reason": reason
                 }
                 test_entry["subtests"].append(sub_test)
 
         # End of loop: add last test entry
         if test_entry:
             results.append(test_entry)
+
+    # Filter out SMBIOS tests using the dedicated function
+    results = [test for test in results if not is_smbios_test(test.get("Test_case", ""))]
+
+    # Filter out Runtime Properties Table test from subtests (appears only as subtest)
+    for test in results:
+        if "subtests" in test and isinstance(test["subtests"], list):
+            test["subtests"] = [
+                subtest for subtest in test["subtests"]
+                if not is_runtime_properties_table_test(subtest.get("sub_Test_Description", ""))
+            ]
 
     # Merge with edk2_test_parser.json if present
     edk2_file = os.path.join(os.path.dirname(output_file), "edk2_test_parser.json")
@@ -495,17 +536,17 @@ def main(input_file, output_file):
 
         # Apply overrides
         for test_obj in results:
-            ep_guid_current = test_obj["Test_case_entry_point_guid"].upper()
+            ep_guid_current = test_obj["Test Entry Point GUID"].upper()
             if ep_guid_current in test_guid_dict:
-                test_obj["Test_case_result"] = normalize_result(test_guid_dict[ep_guid_current]["result"])
-                test_obj["Test_case_result_reason"] = test_guid_dict[ep_guid_current]["reason"]
+                test_obj["test_result"] = normalize_result(test_guid_dict[ep_guid_current]["result"])
+                test_obj["reason"] = test_guid_dict[ep_guid_current]["reason"]
 
             for subtest in test_obj["subtests"]:
                 st_guid = subtest["sub_Test_GUID"].upper()
                 if (ep_guid_current, st_guid) in subtest_dict:
                     match_record = subtest_dict[(ep_guid_current, st_guid)]
                     subtest["sub_test_result"] = normalize_result(match_record["result"])
-                    subtest["sub_test_result_reason"] = match_record["reason"]
+                    subtest["reason"] = match_record["reason"]
                 desc_key = subtest["sub_Test_Description"].strip().upper()
                 lookup_key = (ep_guid_current, st_guid, desc_key)
 
@@ -521,19 +562,19 @@ def main(input_file, output_file):
     for i, test_obj in enumerate(results):
         reordered = {
             "Test_suite": test_obj["Test_suite"],
-            "Test_sub_suite": test_obj["Test_sub_suite"],
+            "Sub_test_suite": test_obj["Sub_test_suite"],
             "Test_case": test_obj["Test_case"],
             "Test_case_description": test_obj["Test_case_description"],
-            "Test_case_entry_point_guid": test_obj["Test_case_entry_point_guid"],
-            "Test_case_status_code": test_obj["Test_case_status_code"]
+            "Test Entry Point GUID": test_obj["Test Entry Point GUID"],
+            "Returned Status Code": test_obj["Returned Status Code"]
         }
         if "Device Path" in test_obj:
             reordered["Device Path"] = test_obj["Device Path"]
 
-        if "Test_case_result" in test_obj:
-            reordered["Test_case_result"] = test_obj["Test_case_result"]
-        if "Test_case_result_reason" in test_obj:
-            reordered["Test_case_result_reason"] = test_obj["Test_case_result_reason"]
+        if "test_result" in test_obj:
+            reordered["test_result"] = test_obj["test_result"]
+        if "reason" in test_obj:
+            reordered["reason"] = test_obj["reason"]
 
         reordered["subtests"] = test_obj["subtests"]
         reordered["test_case_summary"] = test_obj["test_case_summary"]
@@ -553,8 +594,10 @@ def main(input_file, output_file):
 
         for subtest in test_obj["subtests"]:
             final_result = subtest["sub_test_result"].upper()
-            # Classify final_result
-            if "PASS" in final_result:
+            # Classify final_result - check WARNING first to catch "PASS WITH WARNING"
+            if "WARNING" in final_result:
+                tcsum["total_warnings"] += 1
+            elif "PASS" in final_result:
                 tcsum["total_passed"] += 1
             elif "FAIL" in final_result:
                 tcsum["total_failed"] += 1
@@ -562,10 +605,8 @@ def main(input_file, output_file):
                 tcsum["total_aborted"] += 1
             elif "SKIPPED" in final_result:
                 tcsum["total_skipped"] += 1
-            elif "WARNING" in final_result:
-                tcsum["total_warnings"] += 1
-            else:
-                # ANY other override (IGNORED, KNOWN U-BOOT LIMITATION, etc)
+            elif "NOT SUPPORTED" not in final_result:
+                # ANY other override (IGNORED, KNOWN U-BOOT LIMITATION, etc) except NOT SUPPORTED
                 tcsum["total_ignored"] += 1
 
     # Sum them all into suite_summary
@@ -587,6 +628,24 @@ def main(input_file, output_file):
         final_suite_summary["total_skipped"] += tcsum["total_skipped"]
         final_suite_summary["total_warnings"] += tcsum["total_warnings"]
         final_suite_summary["total_ignored"] += tcsum["total_ignored"]
+
+
+        # Also count test-level results (tests with no subtests or test-level overrides)
+        test_result = test_obj.get("test_result", "").upper()
+        if test_result and len(test_obj.get("subtests", [])) == 0:
+            # Only count test-level results if there are no subtests
+            if "WARNING" in test_result:
+                final_suite_summary["total_warnings"] += 1
+            elif "PASS" in test_result:
+                final_suite_summary["total_passed"] += 1
+            elif "FAIL" in test_result:
+                final_suite_summary["total_failed"] += 1
+            elif "ABORTED" in test_result:
+                final_suite_summary["total_aborted"] += 1
+            elif "SKIPPED" in test_result:
+                final_suite_summary["total_skipped"] += 1
+            elif "NOT SUPPORTED" not in test_result:
+                final_suite_summary["total_ignored"] += 1
 
     output_data = {
         "test_results": results,
