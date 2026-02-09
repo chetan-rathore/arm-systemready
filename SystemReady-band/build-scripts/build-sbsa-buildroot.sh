@@ -46,6 +46,11 @@ do_build ()
     make O=$BUILDROOT_OUT_DIR -j $PARALLELISM
     rm $BUILDROOT_DEFCONFIG
     popd
+
+    pushd $TOP_DIR/$BUILDROOT_PATH/out/arm64/build/fwts-${FWTS_VERSION}/smccc_test
+    make -C "$KDIR" M="$PWD" CROSS_COMPILE="$CROSS_COMPILE" modules
+    cp smccc_test.ko $TOP_DIR/ramdisk/drivers/
+    popd
 }
 
 do_clean ()
