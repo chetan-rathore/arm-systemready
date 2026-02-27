@@ -122,7 +122,7 @@ get_grub_src()
 get_sct_src()
 {
     echo "Downloading SCT (edk2-test) source code. TAG : ${SCT_SRC_TAG}"
-    git clone --single-branch https://github.com/tianocore/edk2-test
+    git clone --single-branch https://github.com/sathishas89/edk2-test
     if [ $? -ne 0 ]; then
         echo "Error: Failed to download sct source code"
         exit 1
