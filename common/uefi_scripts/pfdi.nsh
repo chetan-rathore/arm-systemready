@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # @file
-# Copyright (c) 2025, Arm Limited or its affiliates. All rights reserved.
+# Copyright (c) 2025-2026, Arm Limited or its affiliates. All rights reserved.
 # SPDX-License-Identifier : Apache-2.0
 
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,6 +17,7 @@
 # limitations under the License.
 
 echo -off
+
 for %i in 0 1 2 3 4 5 6 7 8 9 A B C D E F then
     if exist FS%i:\yocto_image.flag then
         if exist FS%i:\acs_results_template\acs_results then
@@ -64,11 +65,8 @@ if exist FS%i:\acs_tests\pfdi\pfdi.efi then
         FS%i:\acs_tests\pfdi\pfdi.efi -v 1 -f pfdiverbosetempresults.log
         stall 200000
         if exist pfdiverbosetempresults.log then
-            echo " SystemReady devicetree band ACS v3.1.2 RC0" > pfdiverboseresults.log
-            stall 200000
-            type pfdiverbosetempresults.log >> pfdiverboseresults.log
-            cp pfdiverbosetempresults.log temp/
-            rm pfdiverbosetempresults.log
+            cp pfdiverbosetempresults.log pfdiverboseresults.log
+            mv pfdiverbosetempresults.log temp/
             reset
         else
             echo "There may be issues in writing ofPfdi Verbose logs. Please save the console output"
@@ -96,11 +94,8 @@ if exist FS%i:\acs_tests\pfdi\pfdi.efi then
 
     stall 200000
     if exist pfditempresults.log then
-        echo " SystemReady devicetree band ACS v3.1.2 RC0" > pfdiresults.log
-        stall 200000
-        type pfditempresults.log >> pfdiresults.log
-        cp pfditempresults.log temp/
-        rm pfditempresults.log
+        cp pfditempresults.log pfdiresults.log
+        mv pfditempresults.log temp/
         reset
     else
         echo "There may be issues in writing of pfdi logs. Please save the console output"
