@@ -122,7 +122,7 @@ get_grub_src()
 get_sct_src()
 {
     echo "Downloading SCT (edk2-test) source code. TAG : ${SCT_SRC_TAG}"
-    git clone --single-branch https://github.com/tianocore/edk2-test
+    git clone --single-branch https://github.com/sathishas89/edk2-test
     if [ $? -ne 0 ]; then
         echo "Error: Failed to download sct source code"
         exit 1
@@ -236,7 +236,7 @@ get_efitools_src()
 get_edk2-test-parser_src()
 {
     echo "Downloading edk2-test-parser source code. TAG : $EDK2_TEST_PARSER_TAG"
-    git clone https://git.gitlab.arm.com/systemready/edk2-test-parser.git
+    git clone --branch sbbr_yml_changes https://git.gitlab.arm.com/systemready/edk2-test-parser.git
     pushd $TOP_DIR/edk2-test-parser/
     if [ -n "$EDK2_TEST_PARSER_TAG" ]; then
         git checkout $EDK2_TEST_PARSER_TAG
