@@ -304,6 +304,11 @@ if [ $ADDITIONAL_CMD_OPTION != "noacs" ]; then
   if [ -f /mnt/acs_tests/config/systemready-commit.log ]; then
     cp /mnt/acs_tests/config/systemready-commit.log /mnt/acs_results/acs_summary/config/
   fi
+  # Copying acs_config.txt into result directory
+  if [ -f /mnt/acs_tests/config/acs_config.txt ]; then
+    cp /mnt/acs_tests/config/acs_config.txt /mnt/acs_results/acs_summary/config/
+  fi
+
   sync /mnt
 
   # systemready scripts for os logs
