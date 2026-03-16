@@ -446,6 +446,8 @@ def merge_json_files(json_files, output_file):
                             ts_dict["Waivable"] = row_vals["Waivable"]
                         if "SRS scope" in row_vals:
                             ts_dict["SRS scope"] = row_vals["SRS scope"]
+                        if "Description" in row_vals:
+                            ts_dict["Test_suite_info"] = row_vals["Description"]
                         if "Main Readiness Grouping" in row_vals:
                             ts_dict["Main Readiness Grouping"] = row_vals["Main Readiness Grouping"]
 
@@ -453,6 +455,7 @@ def merge_json_files(json_files, output_file):
                             "Test_suite",
                             "Test_suite_name",
                             "Test_suite_description",
+                            "Test_suite_info",
                             "Waivable",
                             "SRS scope",
                             "Main Readiness Grouping",
