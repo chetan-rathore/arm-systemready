@@ -203,13 +203,16 @@ def _sum_suite_summary(a, b):
 #        "Main Readiness Grouping" fields for each test suite.
 ################################################################################
 
-TEST_CATEGORY_DT_PATH = "/usr/bin/log_parser/test_categoryDT.json"
+if DT_OR_SR_MODE == "DT":
+    TEST_CATEGORY_PATH = "/usr/bin/log_parser/test_categoryDT.json"
+else:
+    TEST_CATEGORY_PATH = "/usr/bin/log_parser/test_category.json"
 
 try:
-    with open(TEST_CATEGORY_DT_PATH, "r") as catf:
-        test_category_dt_data = json.load(catf)
+    with open(TEST_CATEGORY_PATH, "r") as catf:
+        test_category_data = json.load(catf)
 except Exception:
-    test_category_dt_data = {}
+    test_category_data = {}
 
 def build_testcategory_dict(category_data):
     """
@@ -236,7 +239,7 @@ def build_testcategory_dict(category_data):
                 result[s_lower][ts_lower] = row
     return result
 
-test_cat_dict = build_testcategory_dict(test_category_dt_data)
+test_cat_dict = build_testcategory_dict(test_category_data)
 
 def recursive_sort(obj):
     if isinstance(obj, dict):

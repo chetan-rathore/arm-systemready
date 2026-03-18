@@ -66,14 +66,18 @@ test_mapping = {
     "GenericTest": {
         "EFICompliantTest": [
             "PlatformSpecificElements",
-            "RequiredElements"
+            "RequiredElements",
+            "Conformance Profiles Table BB Test"
         ],
         "SbbrEfiSpecVerLvl": [
             "TestEfiSpecVerLvl"
         ],
         "SbbrSysEnvConfig": [
             "BootExcLevel"
-        ]
+        ],
+        "EfiConformanceProfileTableTest": [
+            "EfiConformanceProfileTableTest_func"
+        ],
     },
     "BootServicesTest": {
         "EventTimerandPriorityServicesTest": [
