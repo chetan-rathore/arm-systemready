@@ -70,7 +70,6 @@
         "SKIPPED",
         "ABORTED",
         "WARNING",
-        "WARNINGS",
         "IGNORED",
         "KNOWN ACS LIMITATION",
         "KNOWN U-BOOT LIMITATION",
@@ -96,9 +95,6 @@
           "$ref": "#/definitions/non_negative_int"
         },
         "ABORTED": {
-          "$ref": "#/definitions/non_negative_int"
-        },
-        "WARNINGS": {
           "$ref": "#/definitions/non_negative_int"
         },
         "WARNING": {
@@ -156,36 +152,10 @@
           ]
         },
         "abort_reasons": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/string_list"
-            },
-            {
-              "type": "string"
-            },
-            {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/string_list"
-              }
-            }
-          ]
+          "$ref": "#/definitions/string_list"
         },
         "warning_reasons": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/string_list"
-            },
-            {
-              "type": "string"
-            },
-            {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/string_list"
-              }
-            }
-          ]
+          "$ref": "#/definitions/string_list"
         },
         "waiver_reason": {
           "anyOf": [
@@ -212,7 +182,7 @@
         "Skipped",
         "Total Rules Run",
         "Total_failed_with_waiver",
-        "Warnings"
+        "Warning"
       ],
       "properties": {
         "Failed": {
@@ -239,7 +209,7 @@
         "Total_failed_with_waiver": {
           "$ref": "#/definitions/non_negative_int"
         },
-        "Warnings": {
+        "Warning": {
           "$ref": "#/definitions/non_negative_int"
         }
       },
@@ -383,16 +353,6 @@
         },
         "reason": {
           "type": "string"
-        },
-        "waiver_reason": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "$ref": "#/definitions/string_list"
-            }
-          ]
         }
       },
       "required": [
@@ -474,6 +434,9 @@
         },
         "Waivable": {
           "type": "string"
+        },
+        "Test_suite_info": {
+          "$ref": "#/definitions/string_list"
         }
       }
     },
@@ -538,6 +501,7 @@
           "type": "object",
           "required": [
             "Test_suite",
+            "Test_suite_info",
             "testcases",
             "test_suite_summary"
           ],
@@ -594,7 +558,7 @@
           "type": "object",
           "properties": {
             "suite_summary": {
-          "$ref": "#/definitions/bsa_suite_summary"
+              "$ref": "#/definitions/bsa_suite_summary"
             },
             "test_results": {
               "type": "array",
@@ -621,6 +585,7 @@
           "required": [
             "Test_suite",
             "Test_suite_description",
+            "Test_suite_info",
             "subtests",
             "test_suite_summary"
           ],
@@ -685,6 +650,7 @@
             "Test_case",
             "Test_case_description",
             "Test_suite",
+            "Test_suite_info",
             "reason",
             "subtests",
             "test_case_summary",
@@ -875,6 +841,7 @@
           "required": [
             "Test_suite",
             "Test_suite_description",
+            "Test_suite_info",
             "Test_case",
             "Test_case_description",
             "subtests",
@@ -936,6 +903,7 @@
           "required": [
             "Test_suite",
             "Test_suite_description",
+            "Test_suite_info",
             "Test_case",
             "Test_case_description",
             "subtests",
@@ -1026,11 +994,16 @@
           "type": "object",
           "required": [
             "Test_suite",
+            "Test_suite_info",
+            "reason",
             "test_suite_summary",
             "testcases"
           ],
           "properties": {
             "Test_suite": {
+              "type": "string"
+            },
+            "reason": {
               "type": "string"
             },
             "test_suite_summary": {
@@ -1213,9 +1186,6 @@
         "Suite_Name: Mandatory  : ETHTOOL_TEST_compliance": {
           "type": "string"
         },
-        "Suite_Name: Recommended  : RUNTIME_DEV_MAP_compliance": {
-          "type": "string"
-        },
         "Suite_Name: Mandatory  : FWTS_compliance": {
           "type": "string"
         },
@@ -1249,6 +1219,9 @@
         "Suite_Name: Recommended  : PSCI_compliance": {
           "type": "string"
         },
+        "Suite_Name: Recommended  : RUNTIME_DEV_MAP_compliance": {
+          "type": "string"
+        },
         "Suite_Name: Recommended  : SMBIOS_compliance": {
           "type": "string"
         }
@@ -1277,7 +1250,16 @@
           "$ref": "#/definitions/test_result_base"
         },
         {
+          "required": [
+            "subtests"
+          ],
           "properties": {
+            "subtests": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/subtest_base"
+              }
+            },
             "test_suite_summary": {
               "$ref": "#/definitions/summary_totals"
             }
