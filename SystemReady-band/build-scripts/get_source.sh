@@ -72,10 +72,10 @@ get_sysarch_acs_src()
     if [ -z $SYS_ARCH_ACS_TAG ]; then
         #No TAG is provided. Download the latest code
         echo "Downloading Arm SYSARCH-ACS source code."
-        git clone --depth 1 https://github.com/ARM-software/sysarch-acs.git ShellPkg/Application/sysarch-acs
+        git clone --depth 1 https://github.com/chetan-rathore/sysarch-acs.git ShellPkg/Application/sysarch-acs
     else
         echo "Downloading Arm SYSARCH-ACS source code. TAG : $SYS_ARCH_ACS_TAG"
-        git clone --depth 1 --branch $SYS_ARCH_ACS_TAG https://github.com/ARM-software/sysarch-acs.git ShellPkg/Application/sysarch-acs
+        git clone --depth 1 --branch $SYS_ARCH_ACS_TAG https://github.com/chetan-rathore/sysarch-acs.git ShellPkg/Application/sysarch-acs
     fi
     popd
     pushd  $TOP_DIR/edk2/ShellPkg/Application/sysarch-acs
